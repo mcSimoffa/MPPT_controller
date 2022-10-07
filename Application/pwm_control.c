@@ -1,0 +1,34 @@
+#include "stm8s.h"
+#include "pwm_control.h"
+
+#define CCR3_Val  ((uint16_t)40)
+
+
+
+void pwm_ctrl_Start(void)
+{
+  TIM1_DeInit();
+  TIM1_TimeBaseInit(0, TIM1_COUNTERMODE_UP, 159, 0);    //16MHz/160=100kHz
+ 
+/*
+  TIM1_OCMode = TIM1_OCMODE_PWM2
+  TIM1_OutputState = TIM1_OUTPUTSTATE_ENABLE
+  TIM1_OutputNState = TIM1_OUTPUTNSTATE_ENABLE
+  TIM1_Pulse = CCR1_Val
+  TIM1_OCPolarity = TIM1_OCPOLARITY_LOW
+  TIM1_OCNPolarity = TIM1_OCNPOLARITY_HIGH
+  TIM1_OCIdleState = TIM1_OCIDLESTATE_SET
+  TIM1_OCNIdleState = TIM1_OCIDLESTATE_RESET
+  */
+  TIM1_OC3Init(TIM1_OCMODE_PWM1, TIM1_OUTPUTSTATE_ENABLE, TIM1_OUTPUTNSTATE_DISABLE,
+               CCR3_Val, TIM1_OCPOLARITY_HIGH, TIM1_OCNPOLARITY_HIGH, TIM1_OCIDLESTATE_RESET,
+               TIM1_OCNIDLESTATE_RESET);
+
+  
+  /* TIM1 counter enable */
+  TIM1_Cmd(ENABLE);
+
+  /* TIM1 Main Output Enable */
+  TIM1_CtrlPWMOutputs(ENABLE);
+}
+

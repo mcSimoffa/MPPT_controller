@@ -12,7 +12,7 @@ void main(void)
   CLK_DeInit();
   CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);        // 16MHz for the peripherals
   CLK_SYSCLKConfig(CLK_PRESCALER_CPUDIV16);             // 1MHz for CPU
-  
+  adc_test();
   pwm_ctrl_Start();
 
   while (1)

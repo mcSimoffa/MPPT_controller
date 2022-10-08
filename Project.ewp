@@ -2467,6 +2467,9 @@
         <file>
             <name>$PROJ_DIR$\Application\stm8s_it.c</name>
         </file>
+        <file>
+            <name>$PROJ_DIR$\Application\voltage_measure.c</name>
+        </file>
     </group>
     <group>
         <name>SPL</name>

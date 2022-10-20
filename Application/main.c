@@ -1,35 +1,25 @@
 #include "stm8s.h"
 #include "pwm_control.h"
-
-#define LED_GPIO_PORT  (GPIOB)
-#define LED_GPIO_PINS  (GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7)
-
-void Delay (uint16_t nCount);
-
+#include "adc_control.h"
 
 void main(void)
 {
   CLK_DeInit();
-  CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);        // 16MHz for the peripherals
-  CLK_SYSCLKConfig(CLK_PRESCALER_CPUDIV16);             // 1MHz for CPU
-  adc_test();
+  CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);       // 16MHz for the peripherals
+  CLK_SYSCLKConfig(CLK_PRESCALER_CPUDIV1);             // 16MHz for CPU
+  pwm_ctrl_Init();
+  adc_ctrl_Init();
+
   pwm_ctrl_Start();
+  pwm_ctrl_Enable();
 
   while (1)
   {
-    wfi();
-  }
-
-}
-
-void Delay(uint16_t nCount)
-{
-  /* Decrement nCount value */
-  while (nCount != 0)
-  {
-    nCount--;
+    nop();//wfi();
   }
 }
+
+
 
 #ifdef USE_FULL_ASSERT
 
@@ -41,7 +31,7 @@ void Delay(uint16_t nCount)
   * @retval None
   */
 void assert_failed(uint8_t* file, uint32_t line)
-{ 
+{
   /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
 

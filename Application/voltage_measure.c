@@ -1,11 +1,11 @@
 #include "stm8s.h"
-#include "voltage_measure.h"
+#include "adc_control.h"
 
 
 void adc_test(void)
 {
   GPIO_Init(GPIOD, GPIO_PIN_3, GPIO_MODE_IN_FL_NO_IT);
-  
+
   ADC1_DeInit();
 
   ADC1_Init(ADC1_CONVERSIONMODE_CONTINUOUS, ADC1_CHANNEL_4, ADC1_PRESSEL_FCPU_D2, \

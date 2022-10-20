@@ -5,7 +5,7 @@
   * @version V2.3.0
   * @date    16-June-2017
   * @brief   Main Interrupt Service Routines.
-  *          This file provides template for all peripherals interrupt service 
+  *          This file provides template for all peripherals interrupt service
   *          routine.
    ******************************************************************************
   * @attention
@@ -18,14 +18,14 @@
   *
   *        http://www.st.com/software_license_agreement_liberty_v2
   *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   * See the License for the specific language governing permissions and
   * limitations under the License.
   *
   ******************************************************************************
-  */ 
+  */
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm8s_it.h"
@@ -167,7 +167,7 @@ INTERRUPT_HANDLER(EXTI_PORTE_IRQHandler, 7)
   */
 }
 
-#if defined (STM8S903) || defined (STM8AF622x) 
+#if defined (STM8S903) || defined (STM8AF622x)
 /**
   * @brief External Interrupt PORTF Interrupt routine.
   * @param  None
@@ -255,7 +255,7 @@ INTERRUPT_HANDLER(TIM1_CAP_COM_IRQHandler, 12)
      it is recommended to set a breakpoint on the following instruction.
   */
  }
- 
+
 /**
   * @brief Timer5 Capture/Compare Interrupt routine.
   * @param  None
@@ -455,7 +455,7 @@ INTERRUPT_HANDLER(I2C_IRQHandler, 19)
   * @brief ADC1 interrupt routine.
   * @par Parameters:
   * None
-  * @retval 
+  * @retval
   * None
   */
 uint16_t Conversion_Value;
@@ -465,7 +465,7 @@ uint16_t Conversion_Value;
        it is recommended to set a breakpoint on the following instruction.
     */
    Conversion_Value = ADC1_GetConversionValue();
-   nop();
+   ADC1->CSR &= ~(uint8_t)((1<<7) | (1<<6));
  }
 #endif /* (STM8S208) || (STM8S207) || (STM8AF52Ax) || (STM8AF62Ax) */
 

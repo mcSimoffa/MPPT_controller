@@ -29,6 +29,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm8s_it.h"
+#include "string.h"
+#include "pinmap.h"
 
 /** @addtogroup Template_Project
   * @{
@@ -458,15 +460,14 @@ INTERRUPT_HANDLER(I2C_IRQHandler, 19)
   * @retval
   * None
   */
-uint16_t Conversion_Value;
- INTERRUPT_HANDLER(ADC1_IRQHandler, 22)
- {
-    /* In order to detect unexpected events during development,
-       it is recommended to set a breakpoint on the following instruction.
-    */
-   Conversion_Value = ADC1_GetConversionValue();
-   ADC1->CSR &= ~(uint8_t)((1<<7) | (1<<6));
- }
+extern uint16_t adc_val[3];
+INTERRUPT_HANDLER(ADC1_IRQHandler, 22)
+{
+  GPIO_WriteHigh(DEBUG_RXD_PORT, DEBUG_RXD_PIN);
+ // memcpy(adc_val, (void const*)&ADC1->DB2RH, sizeof(adc_val));
+  ADC1->CSR &= ~(uint8_t)((1<<7) | (1<<6));
+  GPIO_WriteLow(DEBUG_RXD_PORT, DEBUG_RXD_PIN);
+}
 #endif /* (STM8S208) || (STM8S207) || (STM8AF52Ax) || (STM8AF62Ax) */
 
 #if defined (STM8S903) || defined (STM8AF622x)

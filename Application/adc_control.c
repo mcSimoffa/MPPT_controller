@@ -9,6 +9,8 @@
 #define HIGH_AWD_THR_DEFAULT      (uint16_t)853   ///< it is 2.5V level in the full ADC range 0-3V
 #define LOW_AWD_THR_DEFAULT       (uint16_t)602   ///< it is 2.5V level in the full ADC range 0-4.25
 
+uint16_t adc_val[3];
+
 /*! ----------------------------------------------------------------------------
  * \Brief Prepring ADC module for scanning CH0 to CH4
           Conversion starts via an external signal: TIM1 OC3
@@ -22,6 +24,7 @@ void adc_ctrl_Init(void)
   GPIO_Init(I_SENS_PORT, I_SENS_PIN, GPIO_MODE_IN_FL_NO_IT);
 
   GPIO_Init(ADC_REF_EN_PORT, ADC_REF_EN_PIN, GPIO_MODE_OUT_PP_HIGH_SLOW);  ///< Reference voltage supplier enable
+  GPIO_Init(DEBUG_RXD_PORT, DEBUG_RXD_PIN, GPIO_MODE_OUT_PP_LOW_FAST);  ///< \TEST for debug
 
   ADC1_DeInit();
 
@@ -30,13 +33,13 @@ void adc_ctrl_Init(void)
   ADC1->TDRH = (uint8_t)((0x01 << AIN_CH_REF_VOLTAGE) | (0x01 << AIN_CH_U_SENS) |(0x01 << AIN_CH_I_SENS));
 
   //Data align right, external event from TIM1_TRGO
-  ADC1->CR2 = (uint8_t)(ADC1_CR2_SCAN | DATA_ALIGN_RIGHT | EXT_EVENT_TIM1_TRGO | ADC1_CR2_EXTTRIG);
+  ADC1->CR2 = (uint8_t)(ADC1_CR2_SCAN | DATA_ALIGN_RIGHT);///< Test start from TIM1 | EXT_EVENT_TIM1_TRGO | ADC1_CR2_EXTTRIG
 
   // Enable End Of Conversion interrupt  and Analog WatchDog interrupt
   ADC1->CSR = (uint8_t)(AIN_CH_MAX_USE | ADC1_CSR_EOCIE);  ///> \Note: ADC1_CSR_AWDIE interferes a scan process
 
   // f+ADC=16/2=8MHz
-  ADC1->CR1 = (uint8_t)F_PRESCALER_DIV2;
+  ADC1->CR1 = (uint8_t)(F_PRESCALER_DIV2);  ///< Test cont mode | ADC1_CR1_CONT
 
   // Set default thrsholds to watch power supply voltage in the range 3-4.25V
   ADC1_SetHighThreshold(HIGH_AWD_THR_DEFAULT);
@@ -48,5 +51,10 @@ void adc_ctrl_Init(void)
 
   ADC1->CR1 |= ADC1_CR1_ADON;
   enableInterrupts();
+}
+
+void adc_ctrl_StartConv(void)
+{
+  ADC1->CR1 |= ADC1_CR1_ADON;
 }
 

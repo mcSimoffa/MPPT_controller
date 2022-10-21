@@ -3,57 +3,46 @@
 #include "pwm_control.h"
 
 // ----------------------------------------------------------------------------
-#define DUTY_MIN        1
+#define DUTY_MIN        10
 #define DUTY_MAX        180
 #define DUTY_DEFAULT    (DUTY_MIN)
 #define DUTY_STEP       1
 
-#define PRESCALER_1     0
 #define PWM_SCALE       319     ///< 16MHz/(319+1)=50kHz PWM
-
+#define TEST_V_TIMESPAN 40
 // ----------------------------------------------------------------------------
 void pwm_ctrl_Init(void)
 {
-  TIM1_DeInit();
-  TIM1_TimeBaseInit(PRESCALER_1, TIM1_COUNTERMODE_UP, PWM_SCALE, 0);    //16MHz/160=100kHz
+  TIM2_DeInit();
+  TIM2_TimeBaseInit(TIM2_PRESCALER_1, PWM_SCALE);    //16MHz/160=100kHz
 
-/*
-  TIM1_OCMode = TIM1_OCMODE_PWM2
-  TIM1_OutputState = TIM1_OUTPUTSTATE_ENABLE
-  TIM1_OutputNState = TIM1_OUTPUTNSTATE_ENABLE
-  TIM1_Pulse = CCR1_Val
-  TIM1_OCPolarity = TIM1_OCPOLARITY_LOW
-  TIM1_OCNPolarity = TIM1_OCNPOLARITY_HIGH
-  TIM1_OCIdleState = TIM1_OCIDLESTATE_SET
-  TIM1_OCNIdleState = TIM1_OCIDLESTATE_RESET
-  */
-  TIM1_OC3Init(TIM1_OCMODE_PWM1, TIM1_OUTPUTSTATE_ENABLE, TIM1_OUTPUTNSTATE_DISABLE,
-               DUTY_DEFAULT, TIM1_OCPOLARITY_HIGH, TIM1_OCNPOLARITY_HIGH, TIM1_OCIDLESTATE_RESET,
-               TIM1_OCNIDLESTATE_RESET);
+  TIM2_OC1Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE, DUTY_DEFAULT, TIM2_OCPOLARITY_HIGH);
+  TIM2_OC1PreloadConfig(ENABLE);
 
-  TIM1_SelectOutputTrigger(TIM1_TRGOSOURCE_OC3REF);     ///< Use OC3 for ADC run
+  TIM2_OC3Init(TIM2_OCMODE_PWM2, TIM2_OUTPUTSTATE_ENABLE, PWM_SCALE-TEST_V_TIMESPAN, TIM2_OCPOLARITY_LOW);
+  TIM2_OC3PreloadConfig(ENABLE);
 
-  GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);  ///< Init and disable signal for ADP3110
+  TIM2_ARRPreloadConfig(ENABLE);
+  GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);  ///< disable ADP3110 working via ~ODD
+  GPIO_Init(TEST_V_PORT, TEST_V_PIN, GPIO_MODE_OUT_OD_HIZ_FAST);  ///< configure OC3 channel as OpenDrain
 }
 
 // ----------------------------------------------------------------------------
 void pwm_ctrl_Start(void)
 {
-  /* TIM1 counter enable */
-  TIM1_Cmd(ENABLE);
-
-  /* TIM1 Main Output Enable */
-  TIM1_CtrlPWMOutputs(ENABLE);
+  TIM2_Cmd(ENABLE);
 }
 
 // ----------------------------------------------------------------------------
 void pwm_ctrl_Enable(void)
 {
-  GPIO_WriteHigh(PWM_EN_PORT, PWM_EN_PIN);
+  GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_IN_PU_IT);
+  EXTI_SetExtIntSensitivity(EXTI_PWM_EN_PORT, EXTI_SENSITIVITY_FALL_ONLY);
 }
 
 // ----------------------------------------------------------------------------
 void pwm_ctrl_Disable(void)
 {
-  GPIO_WriteLow(PWM_EN_PORT, PWM_EN_PIN);
+  GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
+  EXTI_DeInit();
 }

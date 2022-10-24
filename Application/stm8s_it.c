@@ -29,8 +29,10 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm8s_it.h"
-#include "string.h"
+#include "adc_control.h"
+#include "pwm_control.h"
 #include "pinmap.h"
+
 
 /** @addtogroup Template_Project
   * @{
@@ -119,6 +121,8 @@ INTERRUPT_HANDLER(EXTI_PORTA_IRQHandler, 3)
   /* In order to detect unexpected events during development,
      it is recommended to set a breakpoint on the following instruction.
   */
+  assert_param(PWM_EN_PORT == GPIOA);
+  pwm_en_port_int_handler();
 }
 
 /**
@@ -460,13 +464,9 @@ INTERRUPT_HANDLER(I2C_IRQHandler, 19)
   * @retval
   * None
   */
-extern uint16_t adc_val[3];
 INTERRUPT_HANDLER(ADC1_IRQHandler, 22)
 {
-  GPIO_WriteHigh(DEBUG_RXD_PORT, DEBUG_RXD_PIN);
- // memcpy(adc_val, (void const*)&ADC1->DB2RH, sizeof(adc_val));
-  ADC1->CSR &= ~(uint8_t)((1<<7) | (1<<6));
-  GPIO_WriteLow(DEBUG_RXD_PORT, DEBUG_RXD_PIN);
+  adc_it_handler();
 }
 #endif /* (STM8S208) || (STM8S207) || (STM8AF52Ax) || (STM8AF62Ax) */
 

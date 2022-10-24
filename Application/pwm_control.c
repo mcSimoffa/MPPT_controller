@@ -10,16 +10,21 @@
 
 #define PWM_SCALE       319     ///< 16MHz/(319+1)=50kHz PWM
 #define TEST_V_TIMESPAN 40
+
+
 // ----------------------------------------------------------------------------
+static uint16_t duty =  DUTY_DEFAULT;
+static bool batt_overvoltage;
+
 void pwm_ctrl_Init(void)
 {
   TIM2_DeInit();
   TIM2_TimeBaseInit(TIM2_PRESCALER_1, PWM_SCALE);    //16MHz/160=100kHz
 
-  TIM2_OC1Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE, DUTY_DEFAULT, TIM2_OCPOLARITY_HIGH);
+  TIM2_OC1Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE, duty, TIM2_OCPOLARITY_HIGH);
   TIM2_OC1PreloadConfig(ENABLE);
 
-  TIM2_OC3Init(TIM2_OCMODE_PWM2, TIM2_OUTPUTSTATE_ENABLE, PWM_SCALE-TEST_V_TIMESPAN, TIM2_OCPOLARITY_LOW);
+  TIM2_OC3Init(TIM2_OCMODE_PWM2, TIM2_OUTPUTSTATE_ENABLE, PWM_SCALE-TEST_V_TIMESPAN, TIM2_OCPOLARITY_HIGH);
   TIM2_OC3PreloadConfig(ENABLE);
 
   TIM2_ARRPreloadConfig(ENABLE);
@@ -34,10 +39,21 @@ void pwm_ctrl_Start(void)
 }
 
 // ----------------------------------------------------------------------------
-void pwm_ctrl_Enable(void)
+bool pwm_ctrl_Enable(void)
 {
   GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_IN_PU_IT);
+  __asm("nop");
+  uint8_t enPinLevel = (GPIO_ReadInputData(PWM_EN_PORT) & PWM_EN_PIN);
+  // test if EN line is kept low causes battery overvoltage
+  if (enPinLevel == 0)
+  {
+    // turn PWM off immediately
+    GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
+    return FALSE;
+  }
+
   EXTI_SetExtIntSensitivity(EXTI_PWM_EN_PORT, EXTI_SENSITIVITY_FALL_ONLY);
+  return TRUE;
 }
 
 // ----------------------------------------------------------------------------
@@ -45,4 +61,65 @@ void pwm_ctrl_Disable(void)
 {
   GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
   EXTI_DeInit();
+}
+
+
+// ----------------------------------------------------------------------------
+void pwm_ctrl_Process(void)
+{
+  if (batt_overvoltage)
+  {
+    assert_param(FALSE);
+  }
+}
+// ----------------------------------------------------------------------------
+bool pwm_ctrl_duty_up(void)
+{
+  bool retval = FALSE;
+
+  if (adc_ctrl_is_U_bat_overvoltage() == FALSE)
+  {
+    if (duty < DUTY_MAX + DUTY_STEP)
+    {
+      duty += DUTY_STEP;
+      retval = TRUE;
+    }
+  }
+  else
+  {
+    duty -= DUTY_STEP;
+  }
+
+  TIM2_SetCompare1(duty);
+  return retval;
+}
+
+// ----------------------------------------------------------------------------
+bool pwm_ctrl_duty_down(void)
+{
+  bool retval = FALSE;
+
+  if (duty > DUTY_MIN + DUTY_STEP)
+  {
+    duty -= DUTY_STEP;
+    retval = TRUE;
+  }
+
+  TIM2_SetCompare1(duty);
+  return retval;
+}
+
+/*! ----------------------------------------------------------------------------
+ * \Brief EXTI interrupt handler for port PWM_EN_PORT
+ * \Details It disable PWM driver ADP3110 immediately to preventing further overvoltage
+ *           and set special flag to handle in the main context
+*/
+void pwm_en_port_int_handler(void)
+{
+  if ((GPIO_ReadInputData(PWM_EN_PORT) & PWM_EN_PIN) == 0x00)
+  {
+    // turn PWM off immediately
+    GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
+    batt_overvoltage = TRUE;
+  }
 }

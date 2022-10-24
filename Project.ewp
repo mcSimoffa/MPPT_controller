@@ -2462,10 +2462,19 @@
             <name>$PROJ_DIR$\Application\adc_control.c</name>
         </file>
         <file>
+            <name>$PROJ_DIR$\Application\alive.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\Application\fsm_lib.c</name>
+        </file>
+        <file>
             <name>$PROJ_DIR$\Application\main.c</name>
         </file>
         <file>
             <name>$PROJ_DIR$\Application\pwm_control.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\Application\ringbuf.c</name>
         </file>
         <file>
             <name>$PROJ_DIR$\Application\stm8s_it.c</name>

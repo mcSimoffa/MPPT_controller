@@ -84,7 +84,6 @@ void adc_ctrl_Init(void)
 #endif
 
   ADC1->CR1 |= ADC1_CR1_ADON;
-  enableInterrupts();
 }
 
 // ----------------------------------------------------------------------------

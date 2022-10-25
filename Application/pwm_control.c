@@ -69,7 +69,7 @@ void pwm_ctrl_Process(void)
 {
   if (batt_overvoltage)
   {
-    assert_param(FALSE);
+    assert_param(FALSE); /// \TODO
   }
 }
 // ----------------------------------------------------------------------------

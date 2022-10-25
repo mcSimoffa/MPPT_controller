@@ -1,9 +1,10 @@
+#include <stddef.h>
 #include "stm8s_conf.h"
 #include "pwm_control.h"
 #include "adc_control.h"
 #include "alive.h"
 #include "fsm_lib.h"
-#include <stddef.h>
+#include "uart_drv.h"
 
 //-----------------------------------------------------------------------------
 //   PRIVATE TYPES
@@ -103,6 +104,7 @@ static const FSM_t main_fsm =
 };
 
 static FSM_ctx_t       fsm_ctx;
+static const uint8_t  helloMsg[] = "App Start";
 
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
@@ -121,10 +123,14 @@ void main(void)
   assert_param(ret_code == FSM_SUCCESS);
 
   // Init block
+  uart_drv_Init();
   pwm_ctrl_Init();
   adc_ctrl_Init();
 
+  enableInterrupts();
+
   // Startup block
+  uart_drv_send((uint8_t*)helloMsg, sizeof(helloMsg));
   adc_ctrl_StartConv(); ///< To voltages validate validate
 
   while (TRUE)

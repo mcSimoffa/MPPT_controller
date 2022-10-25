@@ -31,6 +31,7 @@
 #include "stm8s_it.h"
 #include "adc_control.h"
 #include "pwm_control.h"
+#include "uart_drv.h"
 #include "pinmap.h"
 
 
@@ -339,6 +340,7 @@ INTERRUPT_HANDLER(TIM1_CAP_COM_IRQHandler, 12)
     /* In order to detect unexpected events during development,
        it is recommended to set a breakpoint on the following instruction.
     */
+  uart_it_handler();
  }
 
 /**

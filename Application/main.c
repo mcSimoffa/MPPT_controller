@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdio.h>
 #include "stm8s_conf.h"
 #include "pwm_control.h"
 #include "adc_control.h"
@@ -105,7 +106,6 @@ static const FSM_t main_fsm =
 
 static FSM_ctx_t       fsm_ctx;
 static const uint8_t  helloMsg[] = "App Start";
-
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
 //-----------------------------------------------------------------------------
@@ -130,9 +130,9 @@ void main(void)
   enableInterrupts();
 
   // Startup block
-  uart_drv_send((uint8_t*)helloMsg, sizeof(helloMsg));
   adc_ctrl_StartConv(); ///< To voltages validate validate
 
+  log_print(helloMsg);
   while (TRUE)
   {
     adc_ctrl_Process();

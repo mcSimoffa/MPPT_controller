@@ -1,5 +1,6 @@
 #include "stm8s.h"
 #include "pinmap.h"
+#include "adc_control.h"
 #include "pwm_control.h"
 
 // ----------------------------------------------------------------------------

@@ -5,10 +5,6 @@
 
 #define BUF_EMPTY 0
 #define BUF_FULL  2
-//-----------------------------------------------------------------------------
-//   PRIVATE FUNCTIONS PROTOTYPES
-//-----------------------------------------------------------------------------
-static size_t modulo(ringbuf_t const *p_ringbuf, size_t pos);
 
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
@@ -96,7 +92,7 @@ size_t ringbufPut(ringbuf_t const * p_ringbuf, uint8_t *p_data, size_t length)
     processed += partSize;
     qtt -= partSize;
     p_ringbuf->data->head += partSize;
-    p_ringbuf->data->head = modulo(0, p_ringbuf->data->head);
+    p_ringbuf->data->head %= p_ringbuf->bufsize;
 
     if (p_ringbuf->data->head == p_ringbuf->data->tail)
     {
@@ -142,7 +138,7 @@ rb_retcode_t ringbufGet(ringbuf_t const *p_ringbuf, uint8_t *p_data, size_t *p_s
     processed += partSize;
     qtt -= partSize;
     p_ringbuf->data->tail += partSize;
-    p_ringbuf->data->tail = modulo(0, p_ringbuf->data->tail);
+    p_ringbuf->data->tail %= p_ringbuf->bufsize;
 
     if (p_ringbuf->data->head == p_ringbuf->data->tail)
     {
@@ -185,7 +181,7 @@ void ringbufApplyRead(ringbuf_t const *p_ringbuf, size_t size)
 
   p_ringbuf->data->openedSize = 0;
 
-  p_ringbuf->data->tail = modulo(0, p_ringbuf->data->tail + size);
+  p_ringbuf->data->tail %= p_ringbuf->bufsize;
   if (p_ringbuf->data->head == p_ringbuf->data->tail)
   {
     p_ringbuf->data->state = BUF_EMPTY;
@@ -198,14 +194,4 @@ void ringbufReset(ringbuf_t const *p_ringbuf)
   p_ringbuf->data->head = p_ringbuf->data->tail = 0;
   p_ringbuf->data->state = BUF_EMPTY;
   p_ringbuf->data->openedSize = 0;
-}
-
-//-----------------------------------------------------------------------------
-//   PRIVATE FUNCTIONS
-//-----------------------------------------------------------------------------
-static size_t modulo(ringbuf_t const *p_ringbuf, size_t pos)
-{
-  assert_param(p_ringbuf);
-  assert_param(pos);
-  return (pos >= p_ringbuf->bufsize) ? pos - p_ringbuf->bufsize : pos;
 }

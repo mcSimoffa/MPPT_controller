@@ -6,7 +6,7 @@
 #include "alive.h"
 #include "fsm_lib.h"
 #include "uart_drv.h"
-
+#include "sys.h"
 //-----------------------------------------------------------------------------
 //   PRIVATE TYPES
 //-----------------------------------------------------------------------------
@@ -105,7 +105,7 @@ static const FSM_t main_fsm =
 };
 
 static FSM_ctx_t       fsm_ctx;
-static const uint8_t  helloMsg[] = "App Start";
+static const uint8_t  helloMsg[] = "MPPT starts\r\nv";
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
 //-----------------------------------------------------------------------------
@@ -132,14 +132,17 @@ void main(void)
   // Startup block
   adc_ctrl_StartConv(); ///< To voltages validate validate
 
-  log_print(helloMsg);
+  debug_msg(LOG_COLOR_CODE_BLUE, 2,helloMsg, itoa(100, (char *)&(char[8]){0}));
   while (TRUE)
   {
     adc_ctrl_Process();
-
+    if (fsmProcess(&main_fsm, &fsm_ctx))
+    {
+      sleep_lock();
+    }
     if (check_sleepEn())
     {
-      wfi();
+      //wfi();
     }
   }
 

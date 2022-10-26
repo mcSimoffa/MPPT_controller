@@ -189,6 +189,8 @@
                 <option>
                     <name>CCDefines</name>
                     <state>STM8S003</state>
+                    <state>UART_LOG_ENABLED</state>
+                    <state>LOG_USES_COLORS</state>
                 </option>
                 <option>
                     <name>CCPreprocFile</name>
@@ -580,7 +582,7 @@
                 </option>
                 <option>
                     <name>IlinkMapFile</name>
-                    <state>0</state>
+                    <state>1</state>
                 </option>
                 <option>
                     <name>IlinkLogFile</name>
@@ -2478,6 +2480,9 @@
         </file>
         <file>
             <name>$PROJ_DIR$\Application\stm8s_it.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\Application\sys.c</name>
         </file>
         <file>
             <name>$PROJ_DIR$\Application\uart_drv.c</name>

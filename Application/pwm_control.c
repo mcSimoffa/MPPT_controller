@@ -1,4 +1,5 @@
 #include "stm8s.h"
+#include <stdbool.h>
 #include "pinmap.h"
 #include "adc_control.h"
 #include "pwm_control.h"
@@ -50,11 +51,11 @@ bool pwm_ctrl_Enable(void)
   {
     // turn PWM off immediately
     GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
-    return FALSE;
+    return false;
   }
 
   EXTI_SetExtIntSensitivity(EXTI_PWM_EN_PORT, EXTI_SENSITIVITY_FALL_ONLY);
-  return TRUE;
+  return true;
 }
 
 // ----------------------------------------------------------------------------
@@ -70,20 +71,20 @@ void pwm_ctrl_Process(void)
 {
   if (batt_overvoltage)
   {
-    assert_param(FALSE); /// \TODO
+    assert_param(false); ///< \TODO
   }
 }
 // ----------------------------------------------------------------------------
 bool pwm_ctrl_duty_up(void)
 {
-  bool retval = FALSE;
+  bool retval = false;
 
-  if (adc_ctrl_is_U_bat_overvoltage() == FALSE)
+  if (adc_ctrl_is_U_bat_overvoltage() == false)
   {
     if (duty < DUTY_MAX + DUTY_STEP)
     {
       duty += DUTY_STEP;
-      retval = TRUE;
+      retval = true;
     }
   }
   else
@@ -98,12 +99,12 @@ bool pwm_ctrl_duty_up(void)
 // ----------------------------------------------------------------------------
 bool pwm_ctrl_duty_down(void)
 {
-  bool retval = FALSE;
+  bool retval = false;
 
   if (duty > DUTY_MIN + DUTY_STEP)
   {
     duty -= DUTY_STEP;
-    retval = TRUE;
+    retval = true;
   }
 
   TIM2_SetCompare1(duty);
@@ -121,6 +122,6 @@ void pwm_en_port_int_handler(void)
   {
     // turn PWM off immediately
     GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
-    batt_overvoltage = TRUE;
+    batt_overvoltage = true;
   }
 }

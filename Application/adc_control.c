@@ -92,6 +92,7 @@ void adc_ctrl_StartConv(void)
   ADC1->CR1 |= ADC1_CR1_ADON;
 }
 
+// ----------------------------------------------------------------------------
 static void averaging(const adc_data_t *raw, adc_data_t *avg)
 {
   assert_param(raw);
@@ -115,13 +116,13 @@ void adc_ctrl_Process(void)
 
   if (newSample)
   {
-    newSample = FALSE;
+    newSample = false;
     if (ready_flag)
     {
       averaging(&raw_data[0], &averaged_data);
       if (averaged_data.ref == 0)
       {
-         assert_param(FALSE); // wrong TL431 voltage = 0V
+         assert_param(false); // wrong TL431 voltage = 0V
       }
       else
       {
@@ -173,9 +174,9 @@ void adc_it_handler(void)
   // The reading sequence isn't accorded to rm0016 ch28.4. The OVR flag also isn't checked
   // The EOC flag isn't checked because only EOC interrupt is enabled
   memcpy(&raw_data[head++], (uint8_t*)&ADC1->DB2RH, TOTAL_SCANDATA_LEN);
-  if ((ready_flag == FALSE) && (head == AVERAGE_BUF_SIZE))
+  if ((ready_flag == false) && (head == AVERAGE_BUF_SIZE))
   {
-    ready_flag = TRUE;
+    ready_flag = true;
   }
   head %= AVERAGE_BUF_SIZE;
   newSample = true;

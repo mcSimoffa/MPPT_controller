@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include "sys.h"
 #include "fsm_lib.h"
 
 //----------------------------------------------------------------------
@@ -37,10 +39,7 @@ fsm_retcode_t fsmEnable(const FSM_t *inst, bool en, FSM_ctx_t *ctx)
   for (uint16_t i=0; i<inst->total_states; i++)
     if (inst->p_states[i].state != rightOrderState)
     {
-      //if (ctx->logLevel >= NRF_LOG_SEVERITY_ERROR)
-        //NRF_LOG_ERROR("%s: ESM[%s] Element[%d] has jump. Reorder state table ", __func__, ctx->esm_name, i);
-
-      assert_param(FALSE);
+      assert_param(false); ///< Element has jump. Reorder state table
     }
     else
     {
@@ -71,11 +70,6 @@ fsm_retcode_t fsmEnable(const FSM_t *inst, bool en, FSM_ctx_t *ctx)
   }
 
   ctx->isInit = en;
-  /*if (ctx->logLevel >= NRF_LOG_SEVERITY_INFO)
-  {
-    NRF_LOG_DEBUG("%s: ESM[%s] in %s ", __func__, ctx->esm_name, en ? "Enabled" : "Disabled");
-  }    */
-
   return FSM_SUCCESS;
 }
 
@@ -83,7 +77,7 @@ fsm_retcode_t fsmEnable(const FSM_t *inst, bool en, FSM_ctx_t *ctx)
 //-----------------------------------------------------------------------------
 bool fsmProcess(const FSM_t *inst, FSM_ctx_t *ctx)
 {
-  bool retval = FALSE;
+  bool retval = false;
   if (ctx->isInit)
   {
     uint16_t active_state = ctx->state;
@@ -98,10 +92,13 @@ bool fsmProcess(const FSM_t *inst, FSM_ctx_t *ctx)
         if (inst->p_states[active_state].p_signals[i].signal == signal)
         {
           uint16_t new_state = inst->p_states[active_state].p_signals[i].toState;
-
-        /*  if (ctx->logLevel >= NRF_LOG_SEVERITY_INFO)
-            NRF_LOG_DEBUG("%s: ESM[%s] sign %d, %s -> %s", __func__, ctx->esm_name, signal,
-                getNameFromState(inst, active_state), getNameFromState(inst, new_state));   */
+          debug_msg(LOG_COLOR_CODE_GREEN, 6,
+                    "FSM[",
+                    ctx->fsm_name,
+                    "] sign ",
+                    itoa(signal, (char *)&(char[8]){0}),
+                    getNameFromState(inst, active_state),
+                    getNameFromState(inst, new_state));
 
           if (inst->p_states[active_state].p_signals[i].f_jump)
           {
@@ -109,7 +106,7 @@ bool fsmProcess(const FSM_t *inst, FSM_ctx_t *ctx)
           }
 
           ctx->state = new_state;
-          retval = TRUE;
+          retval = true;
 
           break;
         }
@@ -117,11 +114,7 @@ bool fsmProcess(const FSM_t *inst, FSM_ctx_t *ctx)
       // check: action for a new state should be described
       if (i == inst->p_states[active_state].total_signals)
       {
-       /* if (ctx->logLevel >= NRF_LOG_SEVERITY_ERROR)
-        {
-          NRF_LOG_ERROR("%s: ESM[%s] For state %d signal %d not described ", __func__, ctx->esm_name, active_state, signal);
-        }  */
-        assert_param(FALSE);
+        assert_param(false);  ///< For this state this signal not described
       }
     }
   }

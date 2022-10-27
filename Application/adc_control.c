@@ -36,6 +36,9 @@ static adc_data_t raw_data[AVERAGE_BUF_SIZE];
 static adc_data_t averaged_data;
 static bool newSample;
 static uint32_t U_bat, I_in, U_in;
+static uint16_t conv_cnt, conv_cnt_period;
+bool sysTickFlag;
+
  //-----------------------------------------------------------------------------
 //   PRIVATE FUNCTIONS
 //-----------------------------------------------------------------------------
@@ -131,39 +134,51 @@ void adc_ctrl_Process(void)
         I_in = SCALE_I * averaged_data.I / averaged_data.ref;
         U_in = SCALE_U * averaged_data.U / averaged_data.ref;
       }
+
+      // SysTick pulse generation
+      if (conv_cnt_period && (++conv_cnt >= conv_cnt_period))
+      {
+        conv_cnt = 0;
+        sysTickFlag = true;
+      }
     }
     adc_ctrl_StartConv();
   }
 }
 
 // ----------------------------------------------------------------------------
-uint32_t  adc_ctrl_Get_U_bat(void)
+void adc_ctrl_set_SysTick(uint16_t period)
 {
-   return U_bat;
+  conv_cnt = 0;
+  conv_cnt_period = period;
 }
 
 // ----------------------------------------------------------------------------
-uint32_t  adc_ctrl_Get_U_in(void)
+bool adc_ctrl_is_newTick(void)
 {
-   return U_in;
+  bool retval = sysTickFlag;
+  sysTickFlag = false;
+  return retval;
+}
+
+
+// ----------------------------------------------------------------------------
+bool  adc_ctrl_is_Ready(void)
+{
+   return ready_flag;
 }
 
 // ----------------------------------------------------------------------------
-uint32_t  adc_ctrl_Get_I_in(void)
-{
-   return I_in;
-}
-
-// ----------------------------------------------------------------------------
-bool adc_ctrl_is_U_bat_overvoltage(void)
+bool adc_ctrl_is_U_bat_over(void)
 {
   return (U_bat > BATTERY_HIGH_LIMIT);
 }
 
+
 // ----------------------------------------------------------------------------
-bool adc_ctrl_is_U_bat_undervoltage(void)
+uint32_t adc_ctrl_getPower(void)
 {
-  return (U_bat <BATTERY_LOW_LIMIT);
+  return 0; /// \TODO
 }
 
 /*! ----------------------------------------------------------------------------

@@ -7,150 +7,116 @@
 #include "fsm_lib.h"
 #include "uart_drv.h"
 #include "sys.h"
+
+/*! A macro for reversing 'U'->'D' or 'D'->'U'. (0x55->0x44 or 0x44->0x55)
+    \param x allows only 'U' or 'D'
+ */
+#define PWM_DUTY_ACTION_REVERSE(x)((x)^= 0x11)
+
+
 //-----------------------------------------------------------------------------
 //   PRIVATE TYPES
 //-----------------------------------------------------------------------------
 typedef enum
 {
-  STATE_IDLE,
-  STATE_ADC_START,
-  STATE_PWM_STAB,
-  STATES_TOTAL,  //states count
-} state_t;
+  IDLE,
+  WORKING,
+  ACCIDENT,
+} main_state_t;
 
-typedef enum
+typedef struct
 {
-  SIGNAL_NO_ACTION = 0,
-  SIGNAL_SOLAR_READY,
-  SIGNAL_REF_READY,
-  SIGNAL_TO,
-  SIGNAL_OVERVOLTAGE,
-  SIGNAL_CHRGE_COMPLETED,
-  SIGNAL_WEAK_SOLAR,
-} signal_t;
+  uint8_t action;
+  uint8_t terminator; ///< it needs to debug print purpose
+} pwm_duty_t;
 
 //-----------------------------------------------------------------------------
-//   PRIVATE FUNCTIONS
+//   LOCAL VARIABLES
 //-----------------------------------------------------------------------------
-static uint16_t  idleProc(void * ctx)
+static const uint8_t  helloMsg[] = "MPPT starts\r\nv";
+static main_state_t main_state;
+static pwm_duty_t pwm_duty =
 {
-  return SIGNAL_NO_ACTION;
-}
-
-//-----------------------------------------------------------------------------
-static void startADC(void * ctx)
-{
-
-}
-
-//-----------------------------------------------------------------------------
-static uint16_t  waitADC(void * ctx)
-{
-  return SIGNAL_NO_ACTION;
-}
-
-//-----------------------------------------------------------------------------
-static void startPWM(void * ctx)
-{
-
-}
-
-//-----------------------------------------------------------------------------
-static void turnOf(void * ctx)
-{
-
-}
-
-//-----------------------------------------------------------------------------
-static uint16_t  trackingPower(void * ctx)
-{
-  return SIGNAL_NO_ACTION;
-}
-
-//-----------------------------------------------------------------------------
-static void pwmAction(void * ctx)
-{
-
-}
-
-//-----------------------------------------------------------------------------
-static void alarm(void * ctx)
-{
-
-}
-//-----------------------------------------------------------------------------
-//   PRIVATE VARIABLES
-//-----------------------------------------------------------------------------
-static const FSM_t main_fsm =
-{
-  FSM_DEF(STATES_TOTAL)
-  {
-    {
-      FSM_STATE_DEF(STATE_IDLE, "IDLE", idleProc, 1)
-          { {SIGNAL_SOLAR_READY,   STATE_ADC_START,     startADC}  }
-    },
-    {
-      FSM_STATE_DEF(STATE_ADC_START, "ADC_START", waitADC, 2)
-          { {SIGNAL_REF_READY,   STATE_PWM_STAB,  startPWM},
-            {SIGNAL_WEAK_SOLAR,  STATE_IDLE,      turnOf } }
-    },
-    {
-      FSM_STATE_DEF(STATE_PWM_STAB, "PWM_STAB", trackingPower, 4)
-          { {SIGNAL_TO,               STATE_PWM_STAB, pwmAction},
-            {SIGNAL_OVERVOLTAGE,      STATE_IDLE,     alarm},
-            {SIGNAL_WEAK_SOLAR,       STATE_IDLE,     turnOf},
-            {SIGNAL_CHRGE_COMPLETED,  STATE_IDLE,     turnOf }  }
-    },
-  }
+  .action = 'U',  ///< \U means Up = 0x55 and can be very simple transfered to \D' = 0x44 means decreases
+  .terminator = 0x00,
 };
 
-static FSM_ctx_t       fsm_ctx;
-static const uint8_t  helloMsg[] = "MPPT starts\r\nv";
+static uint32_t power, last_power;
+static uint16_t work_cyc;
+
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
 //-----------------------------------------------------------------------------
 void main(void)
 {
+  // clock start
   CLK_DeInit();
   CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);       ///< 16MHz for the peripherals
   CLK_SYSCLKConfig(CLK_PRESCALER_CPUDIV1);             ///< 16MHz for CPU
-
-  // Main finite state machine init
-  fsm_ctx.logLevel = 0;
-  fsm_ctx.fsm_name = "MAIN";
-  assert_param(fsmGetState(&fsm_ctx) == STATE_IDLE);
-  fsm_retcode_t ret_code = fsmEnable(&main_fsm, TRUE, &fsm_ctx);
-  assert_param(ret_code == FSM_SUCCESS);
 
   // Init block
   uart_drv_Init();
   pwm_ctrl_Init();
   adc_ctrl_Init();
 
-  enableInterrupts();
-
   // Startup block
+  enableInterrupts();
+  debug_msg(LOG_COLOR_CODE_BLUE, 2,helloMsg, itoa(100, (char *)&(char[8]){0}));
   adc_ctrl_StartConv(); ///< To voltages validate validate
 
-  debug_msg(LOG_COLOR_CODE_BLUE, 2,helloMsg, itoa(100, (char *)&(char[8]){0}));
+  // Main loop
   while (TRUE)
   {
     adc_ctrl_Process();
-    if (fsmProcess(&main_fsm, &fsm_ctx))
+    if (pwm_ctrl_Process() == PWM_STATUS_EMERGENCY)
     {
-      sleep_lock();
+      main_state = ACCIDENT;
+      debug_msg(LOG_COLOR_CODE_RED, 1, "->ACCIDENT");
     }
+
+    /// State machine handler
+    switch (main_state)
+    {
+      case IDLE:
+        if (adc_ctrl_is_Ready() && (adc_ctrl_is_U_bat_over() == FALSE))
+        {
+          if (pwm_ctrl_Start())
+          {
+            main_state = WORKING;
+            debug_msg(LOG_COLOR_CODE_GREEN, 1, "->WORKING");
+            adc_ctrl_set_SysTick(50);
+            sleep_lock();
+          }
+        }
+        break;
+
+    case WORKING:
+      if (adc_ctrl_is_newTick())
+      {
+        power = adc_ctrl_getPower();
+        if (power < last_power)
+        {
+          PWM_DUTY_ACTION_REVERSE(pwm_duty.action);  // reverse duty action 0x55->0x44->0x55
+        }
+        debug_msg(LOG_COLOR_CODE_DEFAULT, 4, "cyc ", itoa(work_cyc, (char *)&(char[8]){0}), " dir=", &pwm_duty.action);
+        pwm_ctrl_duty_change(pwm_duty.action);    /// \TODO false return isn't handled yet
+        last_power = power;
+      }
+      break;
+
+    case ACCIDENT:
+      break;    /// \TODO
+
+    default:
+      assert_param(false);
+    }
+
+/// Sleep handler
     if (check_sleepEn())
     {
       //wfi();
     }
   }
-
-  pwm_ctrl_Start();
-  pwm_ctrl_Enable();
-  adc_ctrl_StartConv();
-
-
 }
 
 

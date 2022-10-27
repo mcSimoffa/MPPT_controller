@@ -16,7 +16,7 @@
 
 // ----------------------------------------------------------------------------
 static uint16_t duty =  DUTY_DEFAULT;
-static bool batt_overvoltage;
+static bool batt_emergency;
 
 void pwm_ctrl_Init(void)
 {
@@ -35,14 +35,9 @@ void pwm_ctrl_Init(void)
 }
 
 // ----------------------------------------------------------------------------
-void pwm_ctrl_Start(void)
+bool pwm_ctrl_Start(void)
 {
   TIM2_Cmd(ENABLE);
-}
-
-// ----------------------------------------------------------------------------
-bool pwm_ctrl_Enable(void)
-{
   GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_IN_PU_IT);
   __asm("nop");
   uint8_t enPinLevel = (GPIO_ReadInputData(PWM_EN_PORT) & PWM_EN_PIN);
@@ -59,57 +54,60 @@ bool pwm_ctrl_Enable(void)
 }
 
 // ----------------------------------------------------------------------------
-void pwm_ctrl_Disable(void)
+void pwm_ctrl_Stop(void)
 {
   GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
   EXTI_DeInit();
+  TIM2_Cmd(DISABLE);
 }
 
 
 // ----------------------------------------------------------------------------
-void pwm_ctrl_Process(void)
+pwm_status_t pwm_ctrl_Process(void)
 {
-  if (batt_overvoltage)
+  if (batt_emergency)
   {
-    assert_param(false); ///< \TODO
+    return PWM_STATUS_EMERGENCY;
   }
+  return PWM_STATUS_OK;
 }
 // ----------------------------------------------------------------------------
-bool pwm_ctrl_duty_up(void)
+bool pwm_ctrl_duty_change(uint8_t action)
 {
   bool retval = false;
 
-  if (adc_ctrl_is_U_bat_overvoltage() == false)
+  if (action == 'U')
   {
-    if (duty < DUTY_MAX + DUTY_STEP)
+    if (adc_ctrl_is_U_bat_over() == false)
     {
-      duty += DUTY_STEP;
+      if (duty < DUTY_MAX + DUTY_STEP)
+      {
+        duty += DUTY_STEP;
+        retval = true;
+      }
+    }
+    else
+    {
+      duty -= DUTY_STEP;
+    }
+  }
+  else if (action == 'D')
+  {
+    if (duty > DUTY_MIN + DUTY_STEP)
+    {
+      duty -= DUTY_STEP;
       retval = true;
     }
   }
   else
   {
-    duty -= DUTY_STEP;
+    assert_param(false);  // unknown value for action
   }
 
   TIM2_SetCompare1(duty);
   return retval;
 }
 
-// ----------------------------------------------------------------------------
-bool pwm_ctrl_duty_down(void)
-{
-  bool retval = false;
-
-  if (duty > DUTY_MIN + DUTY_STEP)
-  {
-    duty -= DUTY_STEP;
-    retval = true;
-  }
-
-  TIM2_SetCompare1(duty);
-  return retval;
-}
 
 /*! ----------------------------------------------------------------------------
  * \Brief EXTI interrupt handler for port PWM_EN_PORT
@@ -122,6 +120,6 @@ void pwm_en_port_int_handler(void)
   {
     // turn PWM off immediately
     GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
-    batt_overvoltage = true;
+    batt_emergency = true;
   }
 }

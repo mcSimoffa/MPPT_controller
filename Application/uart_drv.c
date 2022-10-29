@@ -1,14 +1,14 @@
 #include "uart_drv.h"
 #include "ringbuf.h"
 
-#define UART_TX_BUFFER_SIZE     128
+#define UART_TX_BUFFER_SIZE     192
 RING_BUF_DEF(rb_uart, UART_TX_BUFFER_SIZE);
 
 // ----------------------------------------------------------------------------
 void uart_drv_Init(void)
 {
     UART1_DeInit();
-    UART1_Init((uint32_t)115200,
+    UART1_Init((uint32_t)250000,
                UART1_WORDLENGTH_8D, UART1_STOPBITS_1, UART1_PARITY_NO,
                UART1_SYNCMODE_CLOCK_DISABLE,
                UART1_MODE_TX_ENABLE);

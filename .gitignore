@@ -1,4 +1,5 @@
-STM8S003/
+Debug/
+Release/
 settings/
 *.ewt
 *.dep

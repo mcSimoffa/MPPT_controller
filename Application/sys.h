@@ -13,7 +13,7 @@
 #define LOG_COLOR_CODE_CYAN    7
 #define LOG_COLOR_CODE_WHITE   8
 
-char *itoa(int16_t n, char *buf);
+char *itoa(int32_t n, char *buf);
 
 void debug_msg(uint8_t color_id, uint8_t params, ...);
 

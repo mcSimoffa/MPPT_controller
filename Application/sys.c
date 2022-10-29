@@ -23,7 +23,7 @@ static const char * m_colors[] =
 #endif
 
 //------------------------------------------------------------
-char *itoa(int16_t n, char *buf)
+char *itoa(int32_t n, char *buf)
 {
   char c;   //for reverse
   bool sign = (bool)(n < 0);

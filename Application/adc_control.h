@@ -3,23 +3,32 @@
 
 #include "stm8s.h"
 
+//-----------------------------------------------------------------------------
+//   EXTERNAL TYPES
+//-----------------------------------------------------------------------------
 typedef struct
 {
-  uint16_t  ref;
-  uint16_t  U;
-  uint16_t  I;
-} adc_data_t;
+  uint32_t  pwr;
+  uint16_t  U_bat;
+  uint16_t  U_in;
+  uint16_t  I_bat;
+  uint16_t  I_in;
+} adc_frame_t;
 
+//-----------------------------------------------------------------------------
+//   FUNCTION PROTOTYPES
+//-----------------------------------------------------------------------------
 void adc_ctrl_Init(void);
 void adc_ctrl_StartConv(void);
 void adc_ctrl_Process(void);
 
-void adc_ctrl_set_SysTick(uint16_t period);
-bool adc_ctrl_is_newTick(void);
+bool  adc_ctrl_Is_Ready(void);
 
-bool  adc_ctrl_is_Ready(void);
-bool adc_ctrl_is_U_bat_over(void);
-uint32_t adc_ctrl_getPower(void);
+bool adc_ctrl_Is_new_frame(void);
+
+bool adc_ctrl_Is_U_bat_over(void);
+
+adc_frame_t *adc_ctrl_GetFrame(void);
 
 void adc_it_handler(void);
 

@@ -48,7 +48,7 @@
                 </option>
                 <option>
                     <name>CSpyDDFFile</name>
-                    <state>$TOOLKIT_DIR$\config\ddf\iostm8s003k3.ddf</state>
+                    <state>$TOOLKIT_DIR$\config\ddf\iostm8s003f3.ddf</state>
                 </option>
                 <option>
                     <name>CSpyEnableExtraOptions</name>
@@ -227,7 +227,7 @@
         </debuggerPlugins>
     </configuration>
     <configuration>
-        <name>STM8S005</name>
+        <name>Debug</name>
         <toolchain>
             <name>STM8</name>
         </toolchain>
@@ -265,7 +265,7 @@
                 </option>
                 <option>
                     <name>DynDriver</name>
-                    <state>SIMULATOR_STM8</state>
+                    <state>STLINK_STM8</state>
                 </option>
                 <option>
                     <name>CSpyDDFOverride</name>
@@ -273,7 +273,7 @@
                 </option>
                 <option>
                     <name>CSpyDDFFile</name>
-                    <state>$TOOLKIT_DIR$\config\ddf\iostm8s005c6.ddf</state>
+                    <state>$TOOLKIT_DIR$\config\ddf\iostm8s003f3.ddf</state>
                 </option>
                 <option>
                     <name>CSpyEnableExtraOptions</name>
@@ -452,7 +452,7 @@
         </debuggerPlugins>
     </configuration>
     <configuration>
-        <name>STM8S007</name>
+        <name>Release</name>
         <toolchain>
             <name>STM8</name>
         </toolchain>
@@ -490,7 +490,7 @@
                 </option>
                 <option>
                     <name>DynDriver</name>
-                    <state>SIMULATOR_STM8</state>
+                    <state>STLINK_STM8</state>
                 </option>
                 <option>
                     <name>CSpyDDFOverride</name>
@@ -498,7 +498,7 @@
                 </option>
                 <option>
                     <name>CSpyDDFFile</name>
-                    <state></state>
+                    <state>$TOOLKIT_DIR$\config\ddf\iostm8s003f3.ddf</state>
                 </option>
                 <option>
                     <name>CSpyEnableExtraOptions</name>

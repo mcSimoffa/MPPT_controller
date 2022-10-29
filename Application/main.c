@@ -20,7 +20,8 @@
 typedef enum
 {
   IDLE,
-  WORKING,
+  STEPPING,
+  GET_STALE,
   ACCIDENT,
 } main_state_t;
 
@@ -28,21 +29,21 @@ typedef struct
 {
   uint8_t action;
   uint8_t terminator; ///< it needs to debug print purpose
-} pwm_duty_t;
+  uint16_t duty;
+} pwm_info_t;
 
 //-----------------------------------------------------------------------------
 //   LOCAL VARIABLES
 //-----------------------------------------------------------------------------
-static const uint8_t  helloMsg[] = "MPPT starts\r\nv";
 static main_state_t main_state;
-static pwm_duty_t pwm_duty =
+static pwm_info_t pwm_info =
 {
   .action = 'U',  ///< \U means Up = 0x55 and can be very simple transfered to \D' = 0x44 means decreases
   .terminator = 0x00,
 };
 
 static uint32_t power, last_power;
-static uint16_t work_cyc;
+static uint16_t frame_cnt;
 
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
@@ -61,7 +62,7 @@ void main(void)
 
   // Startup block
   enableInterrupts();
-  debug_msg(LOG_COLOR_CODE_BLUE, 2,helloMsg, itoa(100, (char *)&(char[8]){0}));
+  debug_msg(LOG_COLOR_CODE_BLUE, 3,"MPPT v", itoa(100, (char *)&(char[8]){0}), " starts\r\n");
   adc_ctrl_StartConv(); ///< To voltages validate validate
 
   // Main loop
@@ -71,41 +72,68 @@ void main(void)
     if (pwm_ctrl_Process() == PWM_STATUS_EMERGENCY)
     {
       main_state = ACCIDENT;
-      debug_msg(LOG_COLOR_CODE_RED, 1, "->ACCIDENT");
+      debug_msg(LOG_COLOR_CODE_RED, 1, "->ACCIDENT\r\n");
     }
 
     /// State machine handler
     switch (main_state)
     {
       case IDLE:
-        if (adc_ctrl_is_Ready() && (adc_ctrl_is_U_bat_over() == FALSE))
+        if (adc_ctrl_Is_Ready() && (adc_ctrl_Is_U_bat_over() == FALSE))
         {
           if (pwm_ctrl_Start())
           {
-            main_state = WORKING;
-            debug_msg(LOG_COLOR_CODE_GREEN, 1, "->WORKING");
-            adc_ctrl_set_SysTick(50);
+            main_state = STEPPING;
+            debug_msg(LOG_COLOR_CODE_GREEN, 1, "->STEPPING\r\n");
             sleep_lock();
           }
         }
         break;
 
-    case WORKING:
-      if (adc_ctrl_is_newTick())
+    case STEPPING:
+      if (adc_ctrl_Is_new_frame())
       {
-        power = adc_ctrl_getPower();
+        frame_cnt++;
+        adc_frame_t * const adc_frame = adc_ctrl_GetFrame();
+        power = adc_frame->pwr;
         if (power < last_power)
         {
-          PWM_DUTY_ACTION_REVERSE(pwm_duty.action);  // reverse duty action 0x55->0x44->0x55
+          PWM_DUTY_ACTION_REVERSE(pwm_info.action);  // reverse duty action 0x55->0x44->0x55
         }
-        debug_msg(LOG_COLOR_CODE_DEFAULT, 4, "cyc ", itoa(work_cyc, (char *)&(char[8]){0}), " dir=", &pwm_duty.action);
-        pwm_ctrl_duty_change(pwm_duty.action);    /// \TODO false return isn't handled yet
+        pwm_info.duty = pwm_ctrl_duty_change(pwm_info.action);
+
+        // debug log
+        debug_msg(LOG_COLOR_CODE_DEFAULT, 15,
+                  "U=", itoa(adc_frame->U_in,     (char *)&(char[8]){0}),
+                  " I=", itoa(adc_frame->I_in,    (char *)&(char[8]){0}),
+                  " P=", itoa(power,              (char *)&(char[16]){0}),
+                  " Ub=", itoa(adc_frame->U_bat,  (char *)&(char[8]){0}),
+                  " Ib=", itoa(adc_frame->I_bat,  (char *)&(char[8]){0}),
+                  " Duty=", itoa(pwm_info.duty,   (char *)&(char[8]){0}),
+                  " Dir=", &pwm_info.action,
+                  "\r\n");
         last_power = power;
+        main_state = GET_STALE;
       }
       break;
 
+    case GET_STALE:
+      {
+        static uint16_t stale_cnt = 0;
+        if (adc_ctrl_Is_new_frame())
+        {
+          if (++stale_cnt == 100)
+          {
+            stale_cnt = 0;
+            main_state = STEPPING;
+          }
+        }
+        break;
+      }
+
     case ACCIDENT:
-      break;    /// \TODO
+      assert_param(false);  /// \TODO
+      break;
 
     default:
       assert_param(false);
@@ -114,7 +142,7 @@ void main(void)
 /// Sleep handler
     if (check_sleepEn())
     {
-      //wfi();
+      wfi();
     }
   }
 }

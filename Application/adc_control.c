@@ -10,12 +10,6 @@
 #define F_PRESCALER_DIV4          (0x02 << 4)
 #define F_PRESCALER_DIV8          (0x04 << 4)
 #define DATA_ALIGN_RIGHT          ADC1_CR2_ALIGN
-//#define EXT_EVENT_TIM1_TRGO       (0x00 << 4)
-
-#if AWD_IN_USE
-#define HIGH_AWD_THR_DEFAULT      (uint16_t)853   ///< it is 2.5V level in the full ADC range 0-3V
-#define LOW_AWD_THR_DEFAULT       (uint16_t)602   ///< it is 2.5V level in the full ADC range 0-4.25
-#endif
 
 #define ADC1_EOC_MASK           (1 << 7)
 #define ADC1_AWD_MASK           (1 << 6)
@@ -23,9 +17,19 @@
 #define TL431_VOLTAGE_MV        ((uint32_t)2500)
 #define SCALE_I                 ((uint32_t)500)
 #define SCALE_U                 ((uint32_t)12500)
-#define AVERAGE_BUF_SIZE        8  // should be pow of 2
+#define AVERAGE_BUF_SIZE        32  // should be pow of 2
 #define BATTERY_HIGH_LIMIT      4200
 #define BATTERY_LOW_LIMIT       3100
+
+//-----------------------------------------------------------------------------
+//   PRIVATE TYPES
+//-----------------------------------------------------------------------------
+typedef struct
+{
+  uint16_t  ref;
+  uint16_t  U;
+  uint16_t  I;
+} adc_data_t;
 
 //-----------------------------------------------------------------------------
 //   PRIVATE VARIABLES
@@ -34,14 +38,30 @@ static uint8_t head;
 static bool ready_flag;
 static adc_data_t raw_data[AVERAGE_BUF_SIZE];
 static adc_data_t averaged_data;
-static bool newSample;
-static uint32_t U_bat, I_in, U_in;
-static uint16_t conv_cnt, conv_cnt_period;
-bool sysTickFlag;
+static bool blob_ready;
+static bool new_frame;
 
- //-----------------------------------------------------------------------------
+adc_frame_t frame;
+
+//-----------------------------------------------------------------------------
 //   PRIVATE FUNCTIONS
 //-----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+static void averaging(const adc_data_t *raw, adc_data_t *avg)
+{
+  assert_param(raw);
+  assert_param(avg);
+  memset(avg, 0, sizeof(adc_data_t));
+  for (uint8_t i=0; i<AVERAGE_BUF_SIZE; i++)
+  {
+    avg->I += raw->I;
+    avg->U += raw->U;
+    avg->ref += raw->ref;
+  }
+  avg->I /= AVERAGE_BUF_SIZE;
+  avg->U /= AVERAGE_BUF_SIZE;
+  avg->ref /= AVERAGE_BUF_SIZE;
+}
 
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
@@ -96,89 +116,64 @@ void adc_ctrl_StartConv(void)
 }
 
 // ----------------------------------------------------------------------------
-static void averaging(const adc_data_t *raw, adc_data_t *avg)
-{
-  assert_param(raw);
-  assert_param(avg);
-  memset(avg, 0, sizeof(adc_data_t));
-  for (uint8_t i=0; i<AVERAGE_BUF_SIZE; i++)
-  {
-    avg->I += raw->I;
-    avg->U += raw->U;
-    avg->ref += raw->ref;
-  }
-  avg->I /= AVERAGE_BUF_SIZE;
-  avg->U /= AVERAGE_BUF_SIZE;
-  avg->ref /= AVERAGE_BUF_SIZE;
-}
-
-// ----------------------------------------------------------------------------
 void adc_ctrl_Process(void)
 {
-  uint32_t volatile U_bat, I_in, U_in;
+  uint32_t U_bat, I_in, U_in;
 
-  if (newSample)
+  if (blob_ready)
   {
-    newSample = false;
-    if (ready_flag)
-    {
-      averaging(&raw_data[0], &averaged_data);
-      if (averaged_data.ref == 0)
-      {
-         assert_param(false); // wrong TL431 voltage = 0V
-      }
-      else
-      {
-        uint32_t  ref = TL431_VOLTAGE_MV * 1023;
-        U_bat = ref / averaged_data.ref;
-        I_in = SCALE_I * averaged_data.I / averaged_data.ref;
-        U_in = SCALE_U * averaged_data.U / averaged_data.ref;
-      }
+    averaging(&raw_data[0], &averaged_data);
+    assert_param(averaged_data.ref > 0);      // wrong TL431 voltage = 0V
 
-      // SysTick pulse generation
-      if (conv_cnt_period && (++conv_cnt >= conv_cnt_period))
-      {
-        conv_cnt = 0;
-        sysTickFlag = true;
-      }
-    }
+    uint32_t  ref = TL431_VOLTAGE_MV * 1023;
+    U_bat = ref / averaged_data.ref;
+    I_in = SCALE_I * averaged_data.I / averaged_data.ref;
+    U_in = SCALE_U * averaged_data.U / averaged_data.ref;
+
+    assert_param(U_bat < U16_MAX);
+    assert_param(U_in < U16_MAX);
+    assert_param(I_in < U16_MAX);
+
+    frame.U_bat = (uint16_t)U_bat;
+    frame.U_in = (uint16_t)U_in;
+    frame.I_in = (uint16_t)I_in;
+
+    new_frame = true;
+    blob_ready = false;
     adc_ctrl_StartConv();
   }
 }
 
 // ----------------------------------------------------------------------------
-void adc_ctrl_set_SysTick(uint16_t period)
-{
-  conv_cnt = 0;
-  conv_cnt_period = period;
-}
-
-// ----------------------------------------------------------------------------
-bool adc_ctrl_is_newTick(void)
-{
-  bool retval = sysTickFlag;
-  sysTickFlag = false;
-  return retval;
-}
-
-
-// ----------------------------------------------------------------------------
-bool  adc_ctrl_is_Ready(void)
+bool  adc_ctrl_Is_Ready(void)
 {
    return ready_flag;
 }
 
 // ----------------------------------------------------------------------------
-bool adc_ctrl_is_U_bat_over(void)
+bool adc_ctrl_Is_new_frame(void)
 {
-  return (U_bat > BATTERY_HIGH_LIMIT);
+  bool retval = new_frame;
+  new_frame = false;
+  return retval;
 }
 
+// ----------------------------------------------------------------------------
+bool adc_ctrl_Is_U_bat_over(void)
+{
+  return (frame.U_bat > BATTERY_HIGH_LIMIT);
+}
 
 // ----------------------------------------------------------------------------
-uint32_t adc_ctrl_getPower(void)
+adc_frame_t *adc_ctrl_GetFrame(void)
 {
-  return 0; /// \TODO
+  uint32_t I_bat = frame.pwr / frame.U_bat;
+  assert_param(I_bat < U16_MAX);
+  frame.I_bat = (uint16_t)I_bat;
+
+  frame.pwr = frame.I_in * frame.U_in;
+
+  return &frame;
 }
 
 /*! ----------------------------------------------------------------------------
@@ -186,19 +181,25 @@ uint32_t adc_ctrl_getPower(void)
 */
 void adc_it_handler(void)
 {
+  ADC1->CSR &= ~(ADC1_EOC_MASK | ADC1_AWD_MASK);
   // The reading sequence isn't accorded to rm0016 ch28.4. The OVR flag also isn't checked
   // The EOC flag isn't checked because only EOC interrupt is enabled
-  memcpy(&raw_data[head++], (uint8_t*)&ADC1->DB2RH, TOTAL_SCANDATA_LEN);
-  if ((ready_flag == false) && (head == AVERAGE_BUF_SIZE))
+  memcpy(&raw_data[head], (uint8_t*)&ADC1->DB2RH, TOTAL_SCANDATA_LEN);
+
+  if (++head == AVERAGE_BUF_SIZE)
   {
+    head = 0;
+    if (ready_flag)
+    {
+      blob_ready = true;
+      sleep_lock();
+    }
     ready_flag = true;
   }
-  head %= AVERAGE_BUF_SIZE;
-  newSample = true;
-  ADC1->CSR &= ~(ADC1_EOC_MASK | ADC1_AWD_MASK);
 
-  //! \FEATURE this registor got to zero together with CSR_AWD
-  // ADC1->AWSRL &= ~(1 << AIN_CH_REF_VOLTAGE);
-  sleep_lock();
+  if (blob_ready == false)
+  {
+    adc_ctrl_StartConv();
+  }
 }
 

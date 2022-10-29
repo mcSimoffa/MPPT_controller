@@ -1,6 +1,7 @@
 #include "stm8s.h"
 #include <stdbool.h>
 #include "pinmap.h"
+#include "alive.h"
 #include "adc_control.h"
 #include "pwm_control.h"
 
@@ -15,31 +16,34 @@
 
 
 // ----------------------------------------------------------------------------
-static uint16_t duty =  DUTY_DEFAULT;
+static int16_t duty = DUTY_DEFAULT;
 static bool batt_emergency;
 
 void pwm_ctrl_Init(void)
 {
+  EXTI_DeInit();
   TIM2_DeInit();
   TIM2_TimeBaseInit(TIM2_PRESCALER_1, PWM_SCALE);    //16MHz/160=100kHz
 
   TIM2_OC1Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE, duty, TIM2_OCPOLARITY_HIGH);
   TIM2_OC1PreloadConfig(ENABLE);
 
-  TIM2_OC3Init(TIM2_OCMODE_PWM2, TIM2_OUTPUTSTATE_ENABLE, PWM_SCALE-TEST_V_TIMESPAN, TIM2_OCPOLARITY_HIGH);
+  TIM2_OC3Init(TIM2_OCMODE_PWM2, TIM2_OUTPUTSTATE_ENABLE, PWM_SCALE-TEST_V_TIMESPAN, TIM2_OCPOLARITY_LOW);
   TIM2_OC3PreloadConfig(ENABLE);
 
   TIM2_ARRPreloadConfig(ENABLE);
   GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);  ///< disable ADP3110 working via ~ODD
-  GPIO_Init(TEST_V_PORT, TEST_V_PIN, GPIO_MODE_OUT_OD_HIZ_FAST);  ///< configure OC3 channel as OpenDrain
 }
 
 // ----------------------------------------------------------------------------
 bool pwm_ctrl_Start(void)
 {
   TIM2_Cmd(ENABLE);
+
   GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_IN_PU_IT);
   __asm("nop");
+
+
   uint8_t enPinLevel = (GPIO_ReadInputData(PWM_EN_PORT) & PWM_EN_PIN);
   // test if EN line is kept low causes battery overvoltage
   if (enPinLevel == 0)
@@ -72,19 +76,13 @@ pwm_status_t pwm_ctrl_Process(void)
   return PWM_STATUS_OK;
 }
 // ----------------------------------------------------------------------------
-bool pwm_ctrl_duty_change(uint8_t action)
+int16_t pwm_ctrl_duty_change(uint8_t action)
 {
-  bool retval = false;
-
   if (action == 'U')
   {
-    if (adc_ctrl_is_U_bat_over() == false)
+    if (adc_ctrl_Is_U_bat_over() == false)
     {
-      if (duty < DUTY_MAX + DUTY_STEP)
-      {
-        duty += DUTY_STEP;
-        retval = true;
-      }
+      duty += DUTY_STEP;
     }
     else
     {
@@ -93,19 +91,25 @@ bool pwm_ctrl_duty_change(uint8_t action)
   }
   else if (action == 'D')
   {
-    if (duty > DUTY_MIN + DUTY_STEP)
-    {
-      duty -= DUTY_STEP;
-      retval = true;
-    }
+    duty -= DUTY_STEP;
   }
   else
   {
     assert_param(false);  // unknown value for action
   }
 
+  // duty limit check
+  if (duty < DUTY_MIN)
+  {
+    duty = DUTY_MIN;
+  }
+  if (duty > DUTY_MAX)
+  {
+    duty = DUTY_MAX;
+  }
+
   TIM2_SetCompare1(duty);
-  return retval;
+  return duty;
 }
 
 
@@ -121,5 +125,6 @@ void pwm_en_port_int_handler(void)
     // turn PWM off immediately
     GPIO_Init(PWM_EN_PORT, PWM_EN_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
     batt_emergency = true;
+    sleep_lock();
   }
 }

@@ -17,13 +17,9 @@ typedef enum
 //   FUNCTION PROTOTYPES
 //-----------------------------------------------------------------------------
 void pwm_ctrl_Init(void);
-bool pwm_ctrl_Start(void);
+void pwm_ctrl_Start(void);
 void pwm_ctrl_Stop(void);
 
-pwm_status_t pwm_ctrl_Process(void);
-
 int16_t pwm_ctrl_duty_change(uint8_t action);
-
-void pwm_en_port_int_handler(void);
 
 #endif // __PWM_CONTROL_H

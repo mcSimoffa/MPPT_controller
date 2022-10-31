@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include "stm8s_conf.h"
+#include "pinmap.h"
 #include "pwm_control.h"
 #include "adc_control.h"
 #include "alive.h"
@@ -43,7 +44,6 @@ static pwm_info_t pwm_info =
 };
 
 static uint32_t power, last_power;
-static uint16_t frame_cnt;
 
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
@@ -54,6 +54,8 @@ void main(void)
   CLK_DeInit();
   CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);       ///< 16MHz for the peripherals
   CLK_SYSCLKConfig(CLK_PRESCALER_CPUDIV1);             ///< 16MHz for CPU
+
+  GPIO_Init(DEBUG_RXD_PORT, DEBUG_RXD_PIN, GPIO_MODE_OUT_PP_LOW_FAST);  ///< \TEST for debug
 
   // Init block
   uart_drv_Init();
@@ -69,11 +71,6 @@ void main(void)
   while (TRUE)
   {
     adc_ctrl_Process();
-    if (pwm_ctrl_Process() == PWM_STATUS_EMERGENCY)
-    {
-      main_state = ACCIDENT;
-      debug_msg(LOG_COLOR_CODE_RED, 1, "->ACCIDENT\r\n");
-    }
 
     /// State machine handler
     switch (main_state)
@@ -81,20 +78,23 @@ void main(void)
       case IDLE:
         if (adc_ctrl_Is_Ready() && (adc_ctrl_Is_U_bat_over() == FALSE))
         {
-          if (pwm_ctrl_Start())
-          {
-            main_state = STEPPING;
-            debug_msg(LOG_COLOR_CODE_GREEN, 1, "->STEPPING\r\n");
-            sleep_lock();
-          }
+          pwm_ctrl_Start();
+          main_state = STEPPING;
+          debug_msg(LOG_COLOR_CODE_GREEN, 1, "->STEPPING\r\n");
+          sleep_lock();
         }
         break;
 
     case STEPPING:
       if (adc_ctrl_Is_new_frame())
       {
-        frame_cnt++;
         adc_frame_t * const adc_frame = adc_ctrl_GetFrame();
+        if (adc_frame->emergency)
+        {
+          main_state = ACCIDENT;
+          debug_msg(LOG_COLOR_CODE_RED, 1, "->ACCIDENT\r\n");
+          break;
+        }
         power = adc_frame->pwr;
         if (power < last_power)
         {

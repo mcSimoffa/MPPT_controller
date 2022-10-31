@@ -122,8 +122,6 @@ INTERRUPT_HANDLER(EXTI_PORTA_IRQHandler, 3)
   /* In order to detect unexpected events during development,
      it is recommended to set a breakpoint on the following instruction.
   */
-  assert_param(PWM_EN_PORT == GPIOA);
-  pwm_en_port_int_handler();
 }
 
 /**

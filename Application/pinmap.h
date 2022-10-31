@@ -10,11 +10,11 @@
 #define PWM_EN_PORT             GPIOA
 #define EXTI_PWM_EN_PORT        EXTI_PORT_GPIOA
 
-#define ADC_REF_EN_PIN          GPIO_PIN_2
-#define ADC_REF_EN_PORT         GPIOA
+#define LED1_PIN                GPIO_PIN_2
+#define LED1_PORT               GPIOA
 
-#define TEST_V_PIN              GPIO_PIN_3
-#define TEST_V_PORT             GPIOA
+#define LED2_PIN                GPIO_PIN_3
+#define LED2_PORT               GPIOA
 
 #define PWM_OUT_PIN             GPIO_PIN_4
 #define PWM_OUT_PORT            GPIOD

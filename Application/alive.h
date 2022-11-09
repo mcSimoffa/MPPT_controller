@@ -1,11 +1,13 @@
 #ifndef ALIVE_H
 #define ALIVE_H
+#include "stm8s.h"
 #include <stdbool.h>
+
 /*!
  * \brief This API needs to prevent suddenly sleep until all events not handled
  * When some event occurs at the end of main loop application needs to one more main cycle to habdle this event
  */
- 
+
 /*!
  * \brief Postpone enter to light sleep mode for one main loop pass.
  * A good way to invoke this function always when any ESM changed own state

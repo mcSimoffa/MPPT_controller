@@ -1,8 +1,10 @@
 #include <string.h>
 #include "stm8s.h"
+#include <stdbool.h>
 #include "pinmap.h"
 #include "alive.h"
 #include "pwm_control.h"
+#include "sys.h"
 #include "adc_control.h"
 
 //-----------------------------------------------------------------------------
@@ -35,30 +37,25 @@ typedef struct
   uint16_t  I;
 } adc_data_t;
 
-typedef enum
-{
-  ADC_IDLE,
-  DROPPING,
-  ACCUMULATE,
-  RAW_READY,
-  FRAME_READY,
-} adc_state_t;
 //-----------------------------------------------------------------------------
 //   PRIVATE VARIABLES
 //-----------------------------------------------------------------------------
 static uint8_t head;
-static adc_state_t adc_state;
-static bool ready_flag;
+static bool isReady;
+static bool isRawReady;
+static bool isFrameReady;
 static adc_data_t raw_data[AVERAGE_BUF_SIZE];
 static adc_data_t averaged_data;
 
 static bool emergency_flag;
 adc_frame_t frame;
 static uint16_t cycles_dropped;
+uint8_t adc_mtx;
+
+
 //-----------------------------------------------------------------------------
 //   PRIVATE FUNCTIONS
 //-----------------------------------------------------------------------------
-// ----------------------------------------------------------------------------
 static void averaging(const adc_data_t *raw, adc_data_t *avg)
 {
   assert_param(raw);
@@ -105,17 +102,7 @@ void adc_ctrl_Init(void)
   // f+ADC=16/8=2MHz
   ADC1->CR1 = (uint8_t)(F_PRESCALER_DIV8);  ///< Test cont mode | ADC1_CR1_CONT
 
-#if AWD_IN_USE
-  // Set default thrsholds to watch power supply voltage in the range 3-4.25V
-  ADC1_SetHighThreshold(HIGH_AWD_THR_DEFAULT);
-  ADC1_SetLowThreshold(LOW_AWD_THR_DEFAULT);
-
-  //Enable Analog WatchDog for the 2.5V rererence voltage channel
-  ADC1->AWCRL = (uint8_t)(1 << AIN_CH_REF_VOLTAGE);
-  ADC1->AWCRH = (uint8_t)0x00;
-#endif
   cycles_dropped = 0;
-  adc_state = ADC_IDLE,
   ADC1->CR1 |= ADC1_CR1_ADON;
 
 }
@@ -131,7 +118,7 @@ void adc_ctrl_Process(void)
 {
   uint32_t U_bat, I_in, U_in;
 
-  if (adc_state == RAW_READY)
+  if (isRawReady)
   {
     averaging(&raw_data[0], &averaged_data);
     assert_param(averaged_data.ref > 0);      // wrong TL431 voltage = 0V
@@ -149,26 +136,23 @@ void adc_ctrl_Process(void)
     frame.U_in = (uint16_t)U_in;
     frame.I_in = (uint16_t)I_in;
 
-    adc_state = FRAME_READY;
-    adc_ctrl_StartConv();
-    ready_flag = true;
+    isRawReady = FALSE;
+    isFrameReady = TRUE;
+    mutex_Release(&adc_mtx);
   }
 }
 
 // ----------------------------------------------------------------------------
 bool  adc_ctrl_Is_Ready(void)
 {
-   return ready_flag;
+   return isReady;
 }
 
 // ----------------------------------------------------------------------------
 bool adc_ctrl_Is_new_frame(void)
 {
-  bool retval = (adc_state == FRAME_READY);
-  if (retval)
-  {
-    adc_state = RAW_READY;
-  }
+  bool retval = isFrameReady;
+  isFrameReady = FALSE;
   return retval;
 }
 
@@ -189,6 +173,7 @@ adc_frame_t *adc_ctrl_GetFrame(void)
   return &frame;
 }
 
+
 /*! ----------------------------------------------------------------------------
  * \Brief ADC1 interrupt handler
 */
@@ -197,36 +182,41 @@ void adc_it_handler(void)
   // clear IT flags
   ADC1->CSR &= ~(ADC1_EOC_MASK | ADC1_AWD_MASK);
 
-  if (adc_state == DROPPING)
+  if (cycles_dropped >= DROP_CYCLES)
   {
-    if (++cycles_dropped >= DROP_CYCLES)
+    // U_bat overvoltage checking. To preventing MCU overvoltage
+    uint16_t *p_ref = (uint16_t*)&ADC1->DB2RH;
+    if (*p_ref < (uint16_t)EMERGENCY_FOR_REF)
     {
-      adc_state = ACCUMULATE;
+      pwm_ctrl_Stop();
+      emergency_flag = TRUE;
+      isReady = FALSE;
+      cycles_dropped = 0;
+      sleep_lock();
+      return;
     }
-    adc_ctrl_StartConv();
-    return;
-  }
 
-   memcpy(&raw_data[head], (uint8_t*)&ADC1->DB2RH, TOTAL_SCANDATA_LEN);
+    if (mutex_tryLock(&adc_mtx))
+    {
+      memcpy(&raw_data[head], (uint8_t*)&ADC1->DB2RH, TOTAL_SCANDATA_LEN);
 
-  // battery overvoltage check
-  if (raw_data[head].ref < (uint16_t)EMERGENCY_FOR_REF)
-  {
-    emergency_flag = true;
-    pwm_ctrl_Stop();
-    sleep_lock();
-    return;
-  }
-
-  if (++head == AVERAGE_BUF_SIZE)
-  {
-    head = 0;
-    adc_state = RAW_READY;
-    sleep_lock();
+      if (++head == AVERAGE_BUF_SIZE)
+      {
+        head = 0;
+        isReady = TRUE;
+        isRawReady = TRUE;
+        sleep_lock();
+      }
+      else
+      {
+        mutex_Release(&adc_mtx);
+      }
+    }
   }
   else
   {
-    adc_ctrl_StartConv();
+    cycles_dropped++;
   }
+  adc_ctrl_StartConv();
 }
 

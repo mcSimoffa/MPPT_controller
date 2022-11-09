@@ -99,3 +99,26 @@ void debug_msg(uint8_t color_id, uint8_t params, ...)
 #else //UART_LOG_ENABLED
 void debug_msg(uint8_t color_id, uint8_t params, ...) {}
 #endif //UART_LOG_ENABLED
+
+//-----------------------------------------------------------------------------
+uint8_t mutex_tryLock(uint8_t *mutex)
+{
+  __istate_t mState = __get_interrupt_state();
+  __disable_interrupt();
+  uint8_t retval = 0;
+
+  if (*mutex == 0)
+  {
+    *mutex = 1;
+    retval = 1;
+  }
+  __set_interrupt_state(mState);
+  return retval;
+}
+
+//-----------------------------------------------------------------------------
+void mutex_Release(uint8_t *mutex)
+{
+  assert_param(*mutex == 1);
+  *mutex = 0;
+}

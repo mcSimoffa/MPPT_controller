@@ -1,11 +1,9 @@
-#include <stddef.h>
-#include <stdio.h>
 #include "stm8s_conf.h"
+#include <stdbool.h>
 #include "pinmap.h"
 #include "pwm_control.h"
 #include "adc_control.h"
 #include "alive.h"
-#include "fsm_lib.h"
 #include "uart_drv.h"
 #include "sys.h"
 
@@ -14,6 +12,7 @@
  */
 #define PWM_DUTY_ACTION_REVERSE(x)((x)^= 0x11)
 
+#define CCM_THRESHOLD   50u    // I_in > 50mA enables syncronus mode for DC-DC
 
 //-----------------------------------------------------------------------------
 //   PRIVATE TYPES
@@ -44,7 +43,7 @@ static pwm_info_t pwm_info =
 };
 
 static uint32_t power, last_power;
-
+static uint16_t cnt;
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
 //-----------------------------------------------------------------------------
@@ -86,8 +85,9 @@ void main(void)
         break;
 
     case STEPPING:
-      if (adc_ctrl_Is_new_frame())
+      if (adc_ctrl_Is_new_frame() &&  (++cnt > 100))
       {
+        cnt = 0;
         adc_frame_t * const adc_frame = adc_ctrl_GetFrame();
         if (adc_frame->emergency)
         {
@@ -96,11 +96,13 @@ void main(void)
           break;
         }
         power = adc_frame->pwr;
-        if (power < last_power)
+        if (power <= last_power)
         {
           PWM_DUTY_ACTION_REVERSE(pwm_info.action);  // reverse duty action 0x55->0x44->0x55
         }
         pwm_info.duty = pwm_ctrl_duty_change(pwm_info.action);
+        bool isSyncro = adc_frame->I_in > CCM_THRESHOLD;
+        pwm_ctrl_mode_change(isSyncro);
 
         // debug log
         debug_msg(LOG_COLOR_CODE_DEFAULT, 15,
@@ -142,7 +144,7 @@ void main(void)
 /// Sleep handler
     if (check_sleepEn())
     {
-      wfi();
+      //wfi();
     }
   }
 }
@@ -152,12 +154,14 @@ void main(void)
 #ifdef USE_FULL_ASSERT
 void assert_failed(uint8_t* file, uint32_t line)
 {
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-
-  /* Infinite loop */
+  GPIO_Init(LED1_PORT,  LED1_PIN, GPIO_MODE_OUT_PP_LOW_SLOW);
   while (1)
   {
+    for (uint16_t i=0; i<10000; i++)
+    {
+      __asm("nop");
+    }
+    GPIO_WriteReverse(LED1_PORT,  LED1_PIN);
   }
 }
 #endif

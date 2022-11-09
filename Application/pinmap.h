@@ -6,18 +6,17 @@
 #define DEBUG_RXD_PIN           GPIO_PIN_6
 #define DEBUG_RXD_PORT          GPIOD
 
-#define PWM_EN_PIN              GPIO_PIN_1
-#define PWM_EN_PORT             GPIOA
-#define EXTI_PWM_EN_PORT        EXTI_PORT_GPIOA
-
-#define LED1_PIN                GPIO_PIN_2
+#define LED1_PIN                GPIO_PIN_1
 #define LED1_PORT               GPIOA
 
-#define LED2_PIN                GPIO_PIN_3
+#define LED2_PIN                GPIO_PIN_2
 #define LED2_PORT               GPIOA
 
 #define PWM_OUT_PIN             GPIO_PIN_4
 #define PWM_OUT_PORT            GPIOD
+
+#define PWM_EN_PIN              GPIO_PIN_3
+#define PWM_EN_PORT             GPIOA
 
 #define AIN_CH_REF_VOLTAGE      ADC1_CHANNEL_2
 #define REF_VOLTAG_PIN          GPIO_PIN_4

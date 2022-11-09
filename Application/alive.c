@@ -1,17 +1,18 @@
-#include <stdbool.h>
+#include "alive.h"
 
-static bool sleepLock = false;
+
+static bool sleepLock = FALSE;
 //------------------------------------------------------------------------------
 
 void sleep_lock(void)
 {
-  sleepLock = true;
+  sleepLock = TRUE;
 }
 
 //------------------------------------------------------------------------------
 bool check_sleepEn()
 {
   bool retval = !sleepLock;
-  sleepLock = false;
+  sleepLock = FALSE;
   return retval;
 }

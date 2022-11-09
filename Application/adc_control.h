@@ -33,4 +33,6 @@ adc_frame_t *adc_ctrl_GetFrame(void);
 
 void adc_it_handler(void);
 
+void systick_adc(void);
+
 #endif // __ADC_CONTROL_H

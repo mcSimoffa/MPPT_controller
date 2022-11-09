@@ -20,6 +20,7 @@ void pwm_ctrl_Init(void);
 void pwm_ctrl_Start(void);
 void pwm_ctrl_Stop(void);
 
+void pwm_ctrl_mode_change(bool syncroMode);
 int16_t pwm_ctrl_duty_change(uint8_t action);
 
 #endif // __PWM_CONTROL_H

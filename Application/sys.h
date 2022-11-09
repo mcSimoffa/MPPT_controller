@@ -17,4 +17,6 @@ char *itoa(int32_t n, char *buf);
 
 void debug_msg(uint8_t color_id, uint8_t params, ...);
 
+uint8_t mutex_tryLock(uint8_t *mutex);
+void mutex_Release(uint8_t *mutex);
 #endif // _SYS_H_

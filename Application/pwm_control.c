@@ -6,10 +6,10 @@
 
 // ----------------------------------------------------------------------------
 #define DUTY_MIN          10
-#define DUTY_MAX          180
+#define DUTY_MAX          100
 #define DUTY_DEFAULT      (DUTY_MIN)
-#define DUTY_STEP         1
-#define PWM_SCALE         319     ///< 16MHz/(319+1)=50kHz PWM
+#define DUTY_STEP         2
+#define PWM_SCALE         249     ///< 16MHz/(319+1)=50kHz PWM
 
 // ----------------------------------------------------------------------------
 static int16_t pwm_duty = DUTY_DEFAULT;
@@ -20,8 +20,8 @@ void pwm_ctrl_Init(void)
   TIM2_DeInit();
   TIM2_TimeBaseInit(TIM2_PRESCALER_1, PWM_SCALE);    //16MHz/160=100kHz
 
-  TIM2_OC1Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE, pwm_duty, TIM2_OCPOLARITY_HIGH);
-  TIM2_OC1PreloadConfig(ENABLE);
+  //TIM2_OC1Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE, pwm_duty, TIM2_OCPOLARITY_HIGH);
+  //TIM2_OC1PreloadConfig(ENABLE);
 
   TIM2_OC3Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE, en_duty, TIM2_OCPOLARITY_HIGH);
   TIM2_OC3PreloadConfig(ENABLE);

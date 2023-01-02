@@ -5,7 +5,7 @@
 // ----------------------------------------------------------------------------
 void systick_Init(void)
 {
-  TIM4_TimeBaseInit(TIM4_PRESCALER_128, 124);
+  TIM4_TimeBaseInit(TIM4_PRESCALER_128, 124);     //1ms
   /* Clear TIM4 update flag */
   TIM4_ClearFlag(TIM4_FLAG_UPDATE);
   /* Enable update interrupt */

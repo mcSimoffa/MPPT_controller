@@ -12,15 +12,15 @@
 #define LED2_PIN                GPIO_PIN_2
 #define LED2_PORT               GPIOA
 
-#define PWM_OUT_PIN             GPIO_PIN_4
-#define PWM_OUT_PORT            GPIOD
+#define DCDC_CTRL_PIN           GPIO_PIN_3
+#define DCDC_CTRL_PORT          GPIOA
 
-#define PWM_EN_PIN              GPIO_PIN_3
-#define PWM_EN_PORT             GPIOA
+#define DCDC_EN_PIN             GPIO_PIN_5
+#define DCDC_EN_PORT            GPIOB
 
-#define AIN_CH_REF_VOLTAGE      ADC1_CHANNEL_2
-#define REF_VOLTAG_PIN          GPIO_PIN_4
-#define REF_VOLTAG_PORT         GPIOC
+#define AIN_CH_BATT_VOLTAGE     ADC1_CHANNEL_2
+#define BATT_VOLTAG_PIN         GPIO_PIN_4
+#define BATT_VOLTAG_PORT        GPIOC
 
 #define AIN_CH_U_SENS           ADC1_CHANNEL_3
 #define U_SENS_PIN              GPIO_PIN_2

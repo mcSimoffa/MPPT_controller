@@ -30,7 +30,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm8s_it.h"
 #include "adc_control.h"
-#include "pwm_control.h"
+#include "main.h"
 #include "uart_drv.h"
 #include "systick.h"
 #include "pinmap.h"
@@ -494,6 +494,10 @@ INTERRUPT_HANDLER(TIM6_UPD_OVF_TRG_IRQHandler, 23)
   /* In order to detect unexpected events during development,
      it is recommended to set a breakpoint on the following instruction.
   */
+   // propagate ticks to application modules
+   systick_tick();
+  /* Cleat Interrupt Pending bit */
+  TIM4_ClearITPendingBit(TIM4_IT_UPDATE);
  }
 #endif /* (STM8S903) || (STM8AF622x)*/
 

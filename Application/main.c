@@ -1,19 +1,14 @@
 #include "stm8s_conf.h"
 #include <stdbool.h>
 #include "pinmap.h"
-#include "pwm_control.h"
 #include "adc_control.h"
 #include "alive.h"
 #include "uart_drv.h"
 #include "sys.h"
+#include "systick.h"
+#include "main.h"
 
-/*! A macro for reversing 'U'->'D' or 'D'->'U'. (0x55->0x44 or 0x44->0x55)
-    \param x allows only 'U' or 'D'
- */
-#define PWM_DUTY_ACTION_REVERSE(x)((x)^= 0x11)
-
-#define CCM_THRESHOLD   50u    // I_in > 50mA enables syncronus mode for DC-DC
-
+#define PAUSE_TICKS     3
 //-----------------------------------------------------------------------------
 //   PRIVATE TYPES
 //-----------------------------------------------------------------------------
@@ -35,112 +30,94 @@ typedef struct
 //-----------------------------------------------------------------------------
 //   LOCAL VARIABLES
 //-----------------------------------------------------------------------------
-static main_state_t main_state;
-static pwm_info_t pwm_info =
-{
-  .action = 'U',  ///< \U means Up = 0x55 and can be very simple transfered to \D' = 0x44 means decreases
-  .terminator = 0x00,
-};
-
 static uint32_t power, last_power;
-static uint16_t cnt;
+static uint16_t pause = PAUSE_TICKS;
+static bool clock;
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
 //-----------------------------------------------------------------------------
 void main(void)
 {
+  uint8_t cnt = 1;     // for log
+
   // clock start
   CLK_DeInit();
   CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);       ///< 16MHz for the peripherals
   CLK_SYSCLKConfig(CLK_PRESCALER_CPUDIV1);             ///< 16MHz for CPU
 
-  GPIO_Init(DEBUG_RXD_PORT, DEBUG_RXD_PIN, GPIO_MODE_OUT_PP_LOW_FAST);  ///< \TEST for debug
 
   // Init block
   uart_drv_Init();
-  pwm_ctrl_Init();
   adc_ctrl_Init();
+  systick_Init();
 
+  /// Firstly disable DC-DC  to prevent uncontrol working
+  //GPIO_Init(DCDC_EN_PORT,   DCDC_EN_PIN,   GPIO_MODE_OUT_OD_LOW_SLOW);  // LOW = prohibition
+  //GPIO_Init(DCDC_CTRL_PORT, DCDC_CTRL_PIN, GPIO_MODE_OUT_OD_LOW_SLOW);
+  
   // Startup block
   enableInterrupts();
+  systick_Start();
   debug_msg(LOG_COLOR_CODE_BLUE, 3,"MPPT v", itoa(100, (char *)&(char[8]){0}), " starts\r\n");
-  adc_ctrl_StartConv(); ///< To voltages validate validate
+  GPIO_Init(DEBUG_RXD_PORT, DEBUG_RXD_PIN, GPIO_MODE_OUT_PP_LOW_FAST);  ///< \TEST for debug
+
+  /// Wait steady mode ADC
+  bool res = adc_ctrl_StartConv();
+  assert_param(res);
+  while (adc_ctrl_Is_Ready() == FALSE)
+  {
+    adc_ctrl_Process();
+  }
+
+  /// Enable DC-DC
+  GPIO_Init(DCDC_EN_PORT,   DCDC_EN_PIN,   GPIO_MODE_OUT_OD_HIZ_SLOW);  // LOW = prohibition
+  GPIO_Init(DCDC_CTRL_PORT, DCDC_CTRL_PIN, GPIO_MODE_OUT_OD_HIZ_SLOW);
 
   // Main loop
   while (TRUE)
   {
-    adc_ctrl_Process();
-
-    /// State machine handler
-    switch (main_state)
+    if (clock)
     {
-      case IDLE:
-        if (adc_ctrl_Is_Ready() && (adc_ctrl_Is_U_bat_over() == FALSE))
-        {
-          pwm_ctrl_Start();
-          main_state = STEPPING;
-          debug_msg(LOG_COLOR_CODE_GREEN, 1, "->STEPPING\r\n");
-          sleep_lock();
-        }
-        break;
-
-    case STEPPING:
-      if (adc_ctrl_Is_new_frame() &&  (++cnt > 100))
+      clock = FALSE;
+      // conversion packet run and result wait
+      adc_ctrl_Is_new_frame();  // to clear adc_ctrl_Is_new_frame() result before waiting
+      bool res = adc_ctrl_StartConv();
+      assert_param(res);
+      do
       {
-        cnt = 0;
-        adc_frame_t * const adc_frame = adc_ctrl_GetFrame();
-        if (adc_frame->emergency)
-        {
-          main_state = ACCIDENT;
-          debug_msg(LOG_COLOR_CODE_RED, 1, "->ACCIDENT\r\n");
-          break;
-        }
-        power = adc_frame->pwr;
-        if (power <= last_power)
-        {
-          PWM_DUTY_ACTION_REVERSE(pwm_info.action);  // reverse duty action 0x55->0x44->0x55
-        }
-        pwm_info.duty = pwm_ctrl_duty_change(pwm_info.action);
-        bool isSyncro = adc_frame->I_in > CCM_THRESHOLD;
-        pwm_ctrl_mode_change(isSyncro);
+        adc_ctrl_Process();
+      } while (adc_ctrl_Is_new_frame() == FALSE);
 
-        // debug log
-        debug_msg(LOG_COLOR_CODE_DEFAULT, 15,
-                  "U=", itoa(adc_frame->U_in,     (char *)&(char[8]){0}),
+      adc_frame_t * const adc_frame = adc_ctrl_GetFrame();
+      power = adc_frame->pwr;
+      if (adc_frame->I_in > 700)
+      {
+        GPIO_WriteLow(DCDC_CTRL_PORT, DCDC_CTRL_PIN);
+      }
+      else if (power == 0)
+      {
+        GPIO_WriteHigh(DCDC_CTRL_PORT, DCDC_CTRL_PIN);
+      }
+      else if (power < last_power)
+      {
+        GPIO_WriteReverse(DCDC_CTRL_PORT, DCDC_CTRL_PIN);
+      }
+
+      // debug log
+      //if (--cnt == 0)
+      {
+        cnt = 1;
+        debug_msg(LOG_COLOR_CODE_DEFAULT, 5,
+                 // "U=", itoa(adc_frame->U_in,     (char *)&(char[8]){0}),
                   " I=", itoa(adc_frame->I_in,    (char *)&(char[8]){0}),
                   " P=", itoa(power,              (char *)&(char[16]){0}),
-                  " Ub=", itoa(adc_frame->U_bat,  (char *)&(char[8]){0}),
-                  " Ib=", itoa(adc_frame->I_bat,  (char *)&(char[8]){0}),
-                  " Duty=", itoa(pwm_info.duty,   (char *)&(char[8]){0}),
-                  " Dir=", &pwm_info.action,
+                //  " Ub=", itoa(adc_frame->U_bat,  (char *)&(char[8]){0}),
+    //              " Ib=", itoa(adc_frame->I_bat,  (char *)&(char[8]){0}),
                   "\r\n");
-        last_power = power;
-        main_state = GET_STALE;
       }
-      break;
-
-    case GET_STALE:
-      {
-        static uint16_t stale_cnt = 0;
-        if (adc_ctrl_Is_new_frame())
-        {
-          if (++stale_cnt == 100)
-          {
-            stale_cnt = 0;
-            main_state = STEPPING;
-          }
-        }
-        break;
-      }
-
-    case ACCIDENT:
-      assert_param(false);  /// \TODO
-      break;
-
-    default:
-      assert_param(false);
+      last_power = power;
     }
-
+ 
 /// Sleep handler
     if (check_sleepEn())
     {
@@ -149,8 +126,19 @@ void main(void)
   }
 }
 
+/*! ----------------------------------------------------------------------------
+ * \Brief TIM4 interrupt handler
+*/
+void systick_tick(void)
+{
+  if (--pause == 0)
+  {
+    pause = PAUSE_TICKS;
+    clock  = TRUE;
+  }
+}
 
-
+//-----------------------------------------------------------------------------
 #ifdef USE_FULL_ASSERT
 void assert_failed(uint8_t* file, uint32_t line)
 {

@@ -20,7 +20,7 @@ typedef struct
 //   FUNCTION PROTOTYPES
 //-----------------------------------------------------------------------------
 void adc_ctrl_Init(void);
-void adc_ctrl_StartConv(void);
+bool adc_ctrl_StartConv(void);
 void adc_ctrl_Process(void);
 
 bool  adc_ctrl_Is_Ready(void);
@@ -32,7 +32,5 @@ bool adc_ctrl_Is_U_bat_over(void);
 adc_frame_t *adc_ctrl_GetFrame(void);
 
 void adc_it_handler(void);
-
-void systick_adc(void);
 
 #endif // __ADC_CONTROL_H

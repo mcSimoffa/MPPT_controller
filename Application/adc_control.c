@@ -17,16 +17,15 @@
 #define ADC1_EOC_MASK           (1 << 7)
 #define ADC1_AWD_MASK           (1 << 6)
 #define TOTAL_SCANDATA_LEN      (3*sizeof(uint16_t))
-#define REF_VOLTAGE_MV          1850u
-#define SCALE_I                 ((uint32_t)500)
-#define SCALE_U                 ((uint32_t)12500)
-#define AVERAGE_BUF_SIZE        32  // should be pow of 2
 
-#define BATTERY_HIGH_LIMIT      4200u
+#define REF_VOLTAGE_MV          ((uint32_t)5100u)
+#define SCALE_I                 ((uint16_t)(1023 * 5))
+#define SCALE_U                 ((uint32_t)208)    //1023 * 12 / (12+47)
+#define AVERAGE_BUF_SIZE        8 // should be pow of 2
+
+#define BATTERY_HIGH_LIMIT      3900u
 #define BATTERY_LOW_LIMIT       3100u
-#define U_BAT_EMERGENCY         5000u
-#define EMERGENCY_FOR_REF       ((1023 * REF_VOLTAGE_MV) / U_BAT_EMERGENCY)
-#define DROP_CYCLES             100
+
 //-----------------------------------------------------------------------------
 //   PRIVATE TYPES
 //-----------------------------------------------------------------------------
@@ -49,7 +48,6 @@ static adc_data_t averaged_data;
 
 static bool emergency_flag;
 adc_frame_t frame;
-static uint16_t cycles_dropped;
 uint8_t adc_mtx;
 
 
@@ -72,6 +70,8 @@ static void averaging(const adc_data_t *raw, adc_data_t *avg)
   avg->ref /= AVERAGE_BUF_SIZE;
 }
 
+
+
 //-----------------------------------------------------------------------------
 //   PUBLIC FUNCTIONS
 //-----------------------------------------------------------------------------
@@ -83,15 +83,15 @@ static void averaging(const adc_data_t *raw, adc_data_t *avg)
 void adc_ctrl_Init(void)
 {
   // Configure ADC related GPIOs
-  GPIO_Init(REF_VOLTAG_PORT,  REF_VOLTAG_PIN, GPIO_MODE_IN_FL_NO_IT);
-  GPIO_Init(U_SENS_PORT,      U_SENS_PIN,     GPIO_MODE_IN_FL_NO_IT);
-  GPIO_Init(I_SENS_PORT,      I_SENS_PIN,     GPIO_MODE_IN_FL_NO_IT);
+  GPIO_Init(BATT_VOLTAG_PORT, BATT_VOLTAG_PIN, GPIO_MODE_IN_FL_NO_IT);
+  GPIO_Init(U_SENS_PORT,      U_SENS_PIN,      GPIO_MODE_IN_FL_NO_IT);
+  GPIO_Init(I_SENS_PORT,      I_SENS_PIN,      GPIO_MODE_IN_FL_NO_IT);
 
   ADC1_DeInit();
 
   // Disable a Shmidt trigger for 3 channels in use
   ADC1->TDRL = (uint8_t)0x0;
-  ADC1->TDRH = (uint8_t)((0x01 << AIN_CH_REF_VOLTAGE) | (0x01 << AIN_CH_U_SENS) |(0x01 << AIN_CH_I_SENS));
+  ADC1->TDRH = (uint8_t)((0x01 << AIN_CH_BATT_VOLTAGE) | (0x01 << AIN_CH_U_SENS) |(0x01 << AIN_CH_I_SENS));
 
   //Data align right, external event from TIM1_TRGO
   ADC1->CR2 = (uint8_t)(ADC1_CR2_SCAN | DATA_ALIGN_RIGHT);///< Test start from TIM1 | EXT_EVENT_TIM1_TRGO | ADC1_CR2_EXTTRIG
@@ -102,15 +102,8 @@ void adc_ctrl_Init(void)
   // f+ADC=16/8=2MHz
   ADC1->CR1 = (uint8_t)(F_PRESCALER_DIV8);  ///< Test cont mode | ADC1_CR1_CONT
 
-  cycles_dropped = 0;
   ADC1->CR1 |= ADC1_CR1_ADON;
 
-}
-
-// ----------------------------------------------------------------------------
-void adc_ctrl_StartConv(void)
-{
-  ADC1->CR1 |= ADC1_CR1_ADON;
 }
 
 // ----------------------------------------------------------------------------
@@ -120,13 +113,12 @@ void adc_ctrl_Process(void)
 
   if (isRawReady)
   {
+    isRawReady = FALSE;
     averaging(&raw_data[0], &averaged_data);
-    assert_param(averaged_data.ref > 0);      // wrong TL431 voltage = 0V
 
-    uint32_t  ref = (uint32_t)REF_VOLTAGE_MV * 1023;
-    U_bat = ref / averaged_data.ref;
-    I_in = SCALE_I * averaged_data.I / averaged_data.ref;
-    U_in = SCALE_U * averaged_data.U / averaged_data.ref;
+    U_bat =(uint32_t)(averaged_data.ref * REF_VOLTAGE_MV) / 1023 ;
+    I_in = (uint32_t)(averaged_data.I * REF_VOLTAGE_MV) / SCALE_I;
+    U_in = (uint32_t)(averaged_data.U * REF_VOLTAGE_MV) / SCALE_U;
 
     assert_param(U_bat < U16_MAX);
     assert_param(U_in < U16_MAX);
@@ -136,10 +128,22 @@ void adc_ctrl_Process(void)
     frame.U_in = (uint16_t)U_in;
     frame.I_in = (uint16_t)I_in;
 
-    isRawReady = FALSE;
+    
     isFrameReady = TRUE;
+    isReady = TRUE;
     mutex_Release(&adc_mtx);
   }
+}
+
+// ----------------------------------------------------------------------------
+bool adc_ctrl_StartConv(void)
+{
+  if (mutex_tryLock(&adc_mtx))
+  {
+    ADC1->CR1 |= ADC1_CR1_ADON;
+    return TRUE;
+  }
+  return FALSE;
 }
 
 // ----------------------------------------------------------------------------
@@ -168,10 +172,13 @@ adc_frame_t *adc_ctrl_GetFrame(void)
   uint32_t I_bat = frame.pwr / frame.U_bat;
   assert_param(I_bat < U16_MAX);
   frame.I_bat = (uint16_t)I_bat;
-  frame.pwr = frame.I_in * frame.U_in;
+  frame.pwr = (uint32_t)frame.I_in * (uint32_t)frame.U_in;
   frame.emergency = emergency_flag;
   return &frame;
 }
+
+
+
 
 
 /*! ----------------------------------------------------------------------------
@@ -182,41 +189,17 @@ void adc_it_handler(void)
   // clear IT flags
   ADC1->CSR &= ~(ADC1_EOC_MASK | ADC1_AWD_MASK);
 
-  if (cycles_dropped >= DROP_CYCLES)
+  memcpy(&raw_data[head], (uint8_t*)&ADC1->DB2RH, TOTAL_SCANDATA_LEN);
+
+  if (++head == AVERAGE_BUF_SIZE)
   {
-    // U_bat overvoltage checking. To preventing MCU overvoltage
-    uint16_t *p_ref = (uint16_t*)&ADC1->DB2RH;
-    if (*p_ref < (uint16_t)EMERGENCY_FOR_REF)
-    {
-      pwm_ctrl_Stop();
-      emergency_flag = TRUE;
-      isReady = FALSE;
-      cycles_dropped = 0;
-      sleep_lock();
-      return;
-    }
-
-    if (mutex_tryLock(&adc_mtx))
-    {
-      memcpy(&raw_data[head], (uint8_t*)&ADC1->DB2RH, TOTAL_SCANDATA_LEN);
-
-      if (++head == AVERAGE_BUF_SIZE)
-      {
-        head = 0;
-        isReady = TRUE;
-        isRawReady = TRUE;
-        sleep_lock();
-      }
-      else
-      {
-        mutex_Release(&adc_mtx);
-      }
-    }
+    head = 0;
+    isRawReady = TRUE;
+    sleep_lock();
   }
   else
   {
-    cycles_dropped++;
+    ADC1->CR1 |= ADC1_CR1_ADON;
   }
-  adc_ctrl_StartConv();
 }
 

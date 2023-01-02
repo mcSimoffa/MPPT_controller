@@ -30,7 +30,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm8s_it.h"
 #include "adc_control.h"
-#include "main.h"
 #include "uart_drv.h"
 #include "systick.h"
 #include "pinmap.h"

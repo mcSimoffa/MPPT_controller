@@ -3,6 +3,8 @@
 
 #include "stm8s.h"
 
-void systick_tick(void);
+#define MIN(a,b)(((a)<(b)) ? (a):(b))
+#define MAX(a,b)(((a)>(b)) ? (a):(b))
+
 
 #endif // _MAIN_H_

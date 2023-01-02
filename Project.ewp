@@ -2479,6 +2479,9 @@
             <name>$PROJ_DIR$\Application\main.c</name>
         </file>
         <file>
+            <name>$PROJ_DIR$\Application\pwm_control.c</name>
+        </file>
+        <file>
             <name>$PROJ_DIR$\Application\ringbuf.c</name>
         </file>
         <file>

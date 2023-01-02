@@ -18,7 +18,7 @@
 #define ADC1_AWD_MASK           (1 << 6)
 #define TOTAL_SCANDATA_LEN      (3*sizeof(uint16_t))
 
-#define REF_VOLTAGE_MV          ((uint32_t)5100u)
+#define REF_VOLTAGE_MV          ((uint32_t)5000u)
 #define SCALE_I                 ((uint16_t)(1023 * 5))
 #define SCALE_U                 ((uint32_t)208)    //1023 * 12 / (12+47)
 #define AVERAGE_BUF_SIZE        8 // should be pow of 2

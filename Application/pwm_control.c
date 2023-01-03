@@ -8,6 +8,7 @@
 #define DUTY_STEP         2
 #define PWM_SCALE         319     ///< 16MHz/(319+1)=50kHz PWM
 #define DUTY_MAX          PWM_SCALE
+#define PWM_DUTY_MIN      60
 
 // ----------------------------------------------------------------------------
 static int16_t pwm_duty = 0;
@@ -27,6 +28,8 @@ void pwm_ctrl_Init(void)
 // ----------------------------------------------------------------------------
 void pwm_ctrl_Start(void)
 {
+  pwm_duty = PWM_DUTY_MIN;
+  TIM2_SetCompare3(pwm_duty);
   TIM2_Cmd(ENABLE);
 }
 
@@ -55,7 +58,7 @@ int16_t pwm_ctrl_duty_change(uint8_t action)
 
   // pwm_duty limit check
   pwm_duty = MIN(pwm_duty, DUTY_MAX);
-  pwm_duty = MAX(pwm_duty, 0);
+  pwm_duty = MAX(pwm_duty, PWM_DUTY_MIN);
 
   TIM2_SetCompare3(pwm_duty);
   return pwm_duty;

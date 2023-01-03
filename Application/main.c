@@ -10,7 +10,11 @@
 #include "main.h"
 
 #define PWM_DUTY_ACTION_REVERSE(x)((x)^= 0x11)
-
+#define I_BAT_LIMIT_DEFAULT             1000
+#define I_BAT_LIMIT_MIN                 300
+#define U_BAT_DEEP_DISHARGE             3000
+#define U_BAT_LIMIT                     4200
+#define MIN_U_INPUT                     6500
 //-----------------------------------------------------------------------------
 //   PRIVATE TYPES
 //-----------------------------------------------------------------------------
@@ -31,6 +35,9 @@ static pwm_info_t pwm_info =
   .action = 'U',  ///< \U means Up = 0x55 and can be very simple transfered to \D' = 0x44 means decreases
   .terminator = 0x00,
 };
+
+static uint16_t I_bat_limit = I_BAT_LIMIT_DEFAULT;
+static uint8_t isLowInput;
 
 //-----------------------------------------------------------------------------
 //   PRIVATE FUNCTIONS
@@ -100,20 +107,60 @@ void main(void)
                 " Dir=", &pwm_info.action,
                 "\r\n");
       /*! \TODO 
-          U < Umin logic to disable conversion and wait
-          Ubat < 3V advanced logic to weak charge firstly
-          Ibat > max logic
           Ubat ~= Umax and 30-60min - disable conversion and success signal
           Ubat < ~4.0V enable conversion again logic
       */
-      if (power <= last_power)
+      
+      /// Solar panel low voltage logic
+      if (adc_frame->U_in < MIN_U_INPUT)
       {
-        PWM_DUTY_ACTION_REVERSE(pwm_info.action);
+        GPIO_WriteLow(DCDC_EN_PORT,   DCDC_EN_PIN);
+        pwm_ctrl_Stop();
+        isLowInput = TRUE;
+        debug_msg(LOG_COLOR_CODE_MAGENTA, 1, "Undervoltage Input\r\n");
       }
-      pwm_info.duty = pwm_ctrl_duty_change(pwm_info.action);
-      last_power = power;
+      else
+      {
+        isLowInput = FALSE;
+        pwm_ctrl_Start();
+        systick_delay_ms(10);
+        GPIO_WriteHigh(DCDC_EN_PORT,   DCDC_EN_PIN);
+        debug_msg(LOG_COLOR_CODE_GREEN, 1, "Undervoltage Input is gone\r\n");
+      }
+      
+      if (isLowInput == FALSE)
+      {
+        uint8_t action = pwm_info.action;
+        if (adc_frame->U_bat < U_BAT_DEEP_DISHARGE)
+        {
+          I_bat_limit = I_BAT_LIMIT_MIN;
+          debug_msg(LOG_COLOR_CODE_MAGENTA, 1, "Pre charge On\r\n");
+        }
+        else
+        {
+          I_bat_limit = I_BAT_LIMIT_DEFAULT;
+          debug_msg(LOG_COLOR_CODE_GREEN, 1, "Pre charge Off\r\n");
+        }
+             
+        if (adc_frame->I_bat > I_bat_limit)
+        {
+          action = 'D';
+          debug_msg(LOG_COLOR_CODE_MAGENTA, 1, "I bat limit\r\n");
+        }
+        else if (adc_frame->U_bat > U_BAT_LIMIT)
+        {
+          action = 'D';
+          debug_msg(LOG_COLOR_CODE_MAGENTA, 1, "U bat limit Up\r\n");
+        }
+        else if (power < last_power)
+        {
+          PWM_DUTY_ACTION_REVERSE(action);
+        }
+        pwm_info.action = action;
+        pwm_info.duty = pwm_ctrl_duty_change(pwm_info.action);
+        last_power = power;
+      }
     }
-    
 /// Sleep handler
     if (check_sleepEn())
     {

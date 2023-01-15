@@ -18,7 +18,7 @@
 #define ADC1_AWD_MASK           (1 << 6)
 #define TOTAL_SCANDATA_LEN      (3*sizeof(uint16_t))
 
-#define REF_VOLTAGE_MV          ((uint32_t)5000u)
+#define REF_VOLTAGE_MV          ((uint32_t)4600u)
 #define SCALE_I                 ((uint16_t)(1023 * 5))
 #define SCALE_U                 ((uint32_t)208)    //1023 * 12 / (12+47)
 #define AVERAGE_BUF_SIZE        8 // should be pow of 2
@@ -46,7 +46,6 @@ static bool isFrameReady;
 static adc_data_t raw_data[AVERAGE_BUF_SIZE];
 static adc_data_t averaged_data;
 
-static bool emergency_flag;
 adc_frame_t frame;
 uint8_t adc_mtx;
 
@@ -169,11 +168,12 @@ bool adc_ctrl_Is_U_bat_over(void)
 // ----------------------------------------------------------------------------
 adc_frame_t *adc_ctrl_GetFrame(void)
 {
-  uint32_t I_bat = frame.pwr / frame.U_bat;
+  uint32_t I_bat;
+  
+  frame.pwr = (uint32_t)frame.I_in * (uint32_t)frame.U_in;
+  I_bat = (frame.U_bat > 500) ? (frame.pwr / frame.U_bat) : 0;
   assert_param(I_bat < U16_MAX);
   frame.I_bat = (uint16_t)I_bat;
-  frame.pwr = (uint32_t)frame.I_in * (uint32_t)frame.U_in;
-  frame.emergency = emergency_flag;
   return &frame;
 }
 

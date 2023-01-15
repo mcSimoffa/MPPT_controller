@@ -5,10 +5,10 @@
 #include "pwm_control.h"
 
 // ----------------------------------------------------------------------------
-#define DUTY_STEP         2
+#define DUTY_STEP         1
 #define PWM_SCALE         319     ///< 16MHz/(319+1)=50kHz PWM
 #define DUTY_MAX          PWM_SCALE
-#define PWM_DUTY_MIN      60
+#define PWM_DUTY_MIN      100
 
 // ----------------------------------------------------------------------------
 static int16_t pwm_duty = 0;

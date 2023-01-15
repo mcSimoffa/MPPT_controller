@@ -16,7 +16,10 @@
 #define DCDC_CTRL_PORT          GPIOA
 
 #define DCDC_EN_PIN             GPIO_PIN_5
-#define DCDC_EN_PORT            GPIOB
+#define DCDC_EN_PORT            GPIOC
+
+#define BATT_ON_PIN             GPIO_PIN_5
+#define BATT_ON_PORT            GPIOB
 
 #define AIN_CH_BATT_VOLTAGE     ADC1_CHANNEL_2
 #define BATT_VOLTAG_PIN         GPIO_PIN_4

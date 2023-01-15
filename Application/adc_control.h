@@ -13,7 +13,6 @@ typedef struct
   uint16_t  U_in;
   uint16_t  I_bat;
   uint16_t  I_in;
-  bool emergency;
 } adc_frame_t;
 
 //-----------------------------------------------------------------------------

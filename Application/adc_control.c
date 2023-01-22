@@ -18,13 +18,13 @@
 #define ADC1_AWD_MASK           (1 << 6)
 #define TOTAL_SCANDATA_LEN      (3*sizeof(uint16_t))
 
-#define REF_VOLTAGE_MV          ((uint32_t)4600u)
+#define REF_VOLTAGE_MV          ((uint32_t)4860u)
 #define SCALE_I                 ((uint16_t)(1023 * 5))
 #define SCALE_U                 ((uint32_t)208)    //1023 * 12 / (12+47)
 #define AVERAGE_BUF_SIZE        8 // should be pow of 2
 
-#define BATTERY_HIGH_LIMIT      3900u
-#define BATTERY_LOW_LIMIT       3100u
+//#define BATTERY_HIGH_LIMIT      3900u
+//#define BATTERY_LOW_LIMIT       3100u
 
 //-----------------------------------------------------------------------------
 //   PRIVATE TYPES
@@ -160,10 +160,10 @@ bool adc_ctrl_Is_new_frame(void)
 }
 
 // ----------------------------------------------------------------------------
-bool adc_ctrl_Is_U_bat_over(void)
+/*bool adc_ctrl_Is_U_bat_over(void)
 {
   return (frame.U_bat > BATTERY_HIGH_LIMIT);
-}
+}*/
 
 // ----------------------------------------------------------------------------
 adc_frame_t *adc_ctrl_GetFrame(void)

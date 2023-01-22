@@ -6,9 +6,9 @@
 
 // ----------------------------------------------------------------------------
 #define DUTY_STEP         1
-#define PWM_SCALE         319     ///< 16MHz/(319+1)=50kHz PWM
+#define PWM_SCALE         799    ///< 16MHz/(799+1)=20kHz PWM
 #define DUTY_MAX          PWM_SCALE
-#define PWM_DUTY_MIN      100
+#define PWM_DUTY_MIN      300
 
 // ----------------------------------------------------------------------------
 static int16_t pwm_duty = 0;

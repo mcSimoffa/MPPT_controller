@@ -6,11 +6,11 @@
 #define DEBUG_RXD_PIN           GPIO_PIN_6
 #define DEBUG_RXD_PORT          GPIOD
 
-#define LED1_PIN                GPIO_PIN_1
-#define LED1_PORT               GPIOA
+#define LED_RED_PIN             GPIO_PIN_1
+#define LED_RED_PORT            GPIOA
 
-#define LED2_PIN                GPIO_PIN_2
-#define LED2_PORT               GPIOA
+#define LED_WHITE_PIN           GPIO_PIN_2
+#define LED_WHITE_PORT          GPIOA
 
 #define DCDC_CTRL_PIN           GPIO_PIN_3
 #define DCDC_CTRL_PORT          GPIOA

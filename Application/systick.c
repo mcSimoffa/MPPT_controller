@@ -13,7 +13,7 @@ typedef struct
   systick_cb_t  cb;
 } cb_t;
 
-static uint16_t pause;
+static uint16_t volatile pause;
 static cb_t     cbs[SYSTICK_CB_MAX_COUNT];
 
 // ----------------------------------------------------------------------------
